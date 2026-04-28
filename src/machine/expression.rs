@@ -1,4 +1,6 @@
 use serde::{Serialize, Deserialize};
+use pest_derive::Parser;
+use pest::Parser;
 
 use super::types::Value;
 
@@ -62,3 +64,7 @@ pub struct Statement
     pub operator: AssignmentOperator,
     pub expression: Expression,
 }
+
+#[derive(Parser)]
+#[grammar = "machine/expression.pest"]
+struct ExpressionParser;

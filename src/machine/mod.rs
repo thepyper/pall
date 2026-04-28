@@ -1,5 +1,4 @@
 mod test;
-mod parse;
 mod types;
 mod connections;
 mod variables;

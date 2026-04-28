@@ -14,9 +14,11 @@ value = { integer_value | float_value | string | reference }
 
 parenthesis = { "(" ~ ( value | binary ) ~ ")" }
 
+unary_expression = { value | parenthesis }
+
 binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
 
-binary = { expression ~ binary_operator ~ expression }
+binary = { unary_expression ~ binary_operator ~ expression }
 
 expression = { value | parenthesis | binary }
 
