@@ -1,6 +1,7 @@
 
 WHITESPACE = _{ " " | "\t" }
 
+alpha     = _{ 'a' .. 'z' | 'A' .. 'Z' }
 dec_digit = _{ '0' .. '9' }
 hex_digit = _{ dec_digit | 'a' .. 'f' | 'A' .. 'F' }
 
@@ -9,8 +10,12 @@ dec_integer_value = { dec_digit+ }
 
 integer_value = _{ hex_integer_value | dec_integer_value }
 float_value   = { dec_digit+ ~ "." ~ dec_digit+ }
-string        = { "\"" ~ dec_digit ~ "\"" } // TODO rifare
-reference     = { dec_digit+ } // TODO rifare
+string_1      = _{ "'" ~ (!"'" ~ ANY)* ~ "'" }
+string_2      = _{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+string        = { string_1 | string_2 }
+
+identifier    = _{ ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
+reference     = { identifier }
 
 value = _{ integer_value | float_value | string | reference }
 
@@ -22,4 +27,4 @@ binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
 
 binary = { unary_expression ~ binary_operator ~ expression }
 
-expression = { value | parenthesis | binary }
+expression = { binary | parenthesis | value }
