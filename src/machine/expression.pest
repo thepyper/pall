@@ -1,0 +1,23 @@
+
+dec_digit = { '0' .. '9' }
+hex_digit = { dec_digit | 'a' .. 'f' | 'A' .. 'F' }
+
+hex_integer_value = { "0x" ~ hex_digit+ }
+dec_integer_value = { dec_digit+ }
+
+integer_value = { hex_integer_value | dec_integer_value }
+float_value   = { dec_digit+ ~ "." ~ dec_digit+ }
+string        = { "\"" ~ dec_digit ~ "\"" } // TODO rifare
+reference     = { dec_digit+ } // TODO rifare
+
+value = { integer_value | float_value | string | reference }
+
+parenthesis = { "(" ~ ( value | binary ) ~ ")" }
+
+binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
+
+binary = { expression ~ binary_operator ~ expression }
+
+expression = { value | parenthesis | binary }
+
+expression_list = { (expression ~ ";") | expression }
