@@ -1,4 +1,3 @@
-
 WHITESPACE = _{ " " | "\t" }
 
 alpha     = _{ 'a' .. 'z' | 'A' .. 'Z' }
@@ -9,17 +8,17 @@ hex_integer_value = { "0x" ~ hex_digit+ }
 dec_integer_value = { dec_digit+ }
 
 integer_value = _{ hex_integer_value | dec_integer_value }
-float_value   = { dec_digit+ ~ "." ~ dec_digit+ }
+float_value   =  { dec_digit+ ~ "." ~ dec_digit+ }
 string_1      = _{ "'" ~ (!"'" ~ ANY)* ~ "'" }
 string_2      = _{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-string        = { string_1 | string_2 }
+string        =  { string_1 | string_2 }
 
-identifier    = _{ ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
-reference     = { identifier }
+identifier = _{ ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
+reference  =  { identifier }
 
 value = _{ integer_value | float_value | string | reference }
 
-parenthesis = _{ "(" ~ ( binary | value ) ~ ")" }
+parenthesis = _{ "(" ~ (binary | value) ~ ")" }
 
 unary_expression = _{ parenthesis | value }
 
@@ -28,3 +27,7 @@ binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
 binary = { unary_expression ~ binary_operator ~ expression }
 
 expression = { binary | parenthesis | value }
+
+assignment_operator = { "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" }
+
+statement = { identifier ~ assignment_operator ~ expression }
