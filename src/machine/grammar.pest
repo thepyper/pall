@@ -1,17 +1,31 @@
 WHITESPACE = _{ " " | "\t" }
 
+// Generic rules
 alpha     = _{ 'a' .. 'z' | 'A' .. 'Z' }
 dec_digit = _{ '0' .. '9' }
 hex_digit = _{ dec_digit | 'a' .. 'f' | 'A' .. 'F' }
 
-hex_integer_value = { "0x" ~ hex_digit+ }
-dec_integer_value = { dec_digit+ }
+// Hex integer rules
+hex_integer_value_content =  { hex_digit+ }
+_hex_integer_value        = _{ "0x" ~ hex_integer_value_content }
 
-integer_value = _{ hex_integer_value | dec_integer_value }
-float_value   =  { dec_digit+ ~ "." ~ dec_digit+ }
-string_1      = _{ "'" ~ (!"'" ~ ANY)* ~ "'" }
-string_2      = _{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-string        =  { string_1 | string_2 }
+// Dec integer rules
+dec_integer_value_content = { dec_digit+ }
+
+// Integer rules
+integer_value = _{ _hex_integer_value | dec_integer_value_content }
+
+// Float rules
+float_mantissa =  { dec_digit+ ~ "." ~ dec_digit+ }
+float_exponent =  { dec_digit+ }
+float_value    = _{ float_mantissa ~ (("E+" | "e+") ~ float_exponent)? }
+
+// String rules
+string_content_1 =  { (!"'" ~ ANY)* }
+string_content_2 =  { (!"\"" ~ ANY)* }
+string_1         = _{ "'" ~ string_content_1 ~ "'" }
+string_2         = _{ "\"" ~ string_content_2 ~ "\"" }
+string           =  { string_1 | string_2 }
 
 identifier = _{ ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
 reference  =  { identifier }
@@ -31,3 +45,5 @@ expression = { binary | parenthesis | value }
 assignment_operator = { "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" }
 
 statement = { identifier ~ assignment_operator ~ expression }
+
+link = { identifier ~ "." ~ identifier }

@@ -148,3 +148,27 @@ fn test_parse_expression() {
         GrammarParser::parse(Rule::expression, r###"a + b + c + d + e"###).unwrap()
     );
 }
+
+#[test]
+fn test_parse_statement() {
+    eprintln!(
+        "1. {:?}",
+        GrammarParser::parse(Rule::statement, r###"x = 1"###).unwrap()
+    );
+    eprintln!(
+        "2. {:?}",
+        GrammarParser::parse(Rule::statement, r###"y &= 1 + 5"###).unwrap()
+    );
+    eprintln!(
+        "3. {:?}",
+        GrammarParser::parse(Rule::statement, r###"z /= 9 + (5 * y)"###).unwrap()
+    );
+    eprintln!(
+        "4. {:?}",
+        GrammarParser::parse(Rule::statement, r###"v *= z + y + z"###).unwrap()
+    );
+    eprintln!(
+        "5. {:?}",
+        GrammarParser::parse(Rule::statement, r###"u += (1 & 2)"###).unwrap()
+    );
+}
