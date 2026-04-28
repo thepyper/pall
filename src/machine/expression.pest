@@ -1,25 +1,25 @@
 
+WHITESPACE = _{ " " | "\t" }
+
 dec_digit = _{ '0' .. '9' }
 hex_digit = _{ dec_digit | 'a' .. 'f' | 'A' .. 'F' }
 
 hex_integer_value = { "0x" ~ hex_digit+ }
 dec_integer_value = { dec_digit+ }
 
-integer_value = { hex_integer_value | dec_integer_value }
+integer_value = _{ hex_integer_value | dec_integer_value }
 float_value   = { dec_digit+ ~ "." ~ dec_digit+ }
 string        = { "\"" ~ dec_digit ~ "\"" } // TODO rifare
 reference     = { dec_digit+ } // TODO rifare
 
 value = _{ integer_value | float_value | string | reference }
 
-parenthesis = _{ "(" ~ ( value | binary ) ~ ")" }
+parenthesis = _{ "(" ~ ( binary | value ) ~ ")" }
 
-unary_expression = _{ value | parenthesis }
+unary_expression = _{ parenthesis | value }
 
 binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
 
 binary = { unary_expression ~ binary_operator ~ expression }
 
 expression = { value | parenthesis | binary }
-
-expression_list = { (expression ~ ";")* ~ expression }
