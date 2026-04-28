@@ -6,41 +6,44 @@ dec_digit = _{ '0' .. '9' }
 hex_digit = _{ dec_digit | 'a' .. 'f' | 'A' .. 'F' }
 
 // Hex integer rules
-hex_integer_value_content =  { hex_digit+ }
-_hex_integer_value        = _{ "0x" ~ hex_integer_value_content }
+hex_integer_value  =  { hex_digit+ }
+_hex_integer_value = _{ "0x" ~ hex_integer_value }
 
 // Dec integer rules
-dec_integer_value_content = { dec_digit+ }
+dec_integer_value = { dec_digit+ }
 
 // Integer rules
-integer_value = _{ _hex_integer_value | dec_integer_value_content }
+_integer_value = _{ _hex_integer_value | dec_integer_value }
 
 // Float rules
-float_mantissa =  { dec_digit+ ~ "." ~ dec_digit+ }
-float_exponent =  { dec_digit+ }
-float_value    = _{ float_mantissa ~ (("E+" | "e+") ~ float_exponent)? }
+float_mantissa = { dec_digit+ ~ "." ~ dec_digit+ }
+float_exponent = { dec_digit+ }
+float_value    = { float_mantissa ~ (("E+" | "e+") ~ float_exponent)? }
 
 // String rules
-string_content_1 =  { (!"'" ~ ANY)* }
-string_content_2 =  { (!"\"" ~ ANY)* }
-string_1         = _{ "'" ~ string_content_1 ~ "'" }
-string_2         = _{ "\"" ~ string_content_2 ~ "\"" }
-string           =  { string_1 | string_2 }
+string_1  =  { (!"'" ~ ANY)* }
+string_2  =  { (!"\"" ~ ANY)* }
+_string_1 = _{ "'" ~ string_1 ~ "'" }
+_string_2 = _{ "\"" ~ string_2 ~ "\"" }
+_string   = _{ _string_1 | _string_2 }
 
-identifier = _{ ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
-reference  =  { identifier }
+// Identifier rules
+identifier = { ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
 
-value = _{ integer_value | float_value | string | reference }
+// Value rules
+_value = _{ float_value | _integer_value | _string | identifier }
 
-parenthesis = _{ "(" ~ (binary | value) ~ ")" }
+// Parenthesis rules
+parenthesis  =  { (binary | _value) }
+_parenthesis = _{ "(" ~ parenthesis ~ ")" }
 
-unary_expression = _{ parenthesis | value }
+_unary_expression = _{ _parenthesis | _value }
 
-binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
+binary_operator = { "&&" | "||" | "^^" | "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" | "==" | "!=" | "<=" | ">=" | "<" | ">" }
 
-binary = { unary_expression ~ binary_operator ~ expression }
+binary = { _unary_expression ~ binary_operator ~ expression }
 
-expression = { binary | parenthesis | value }
+expression = { binary | _parenthesis | _value }
 
 assignment_operator = { "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" }
 

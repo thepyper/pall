@@ -65,6 +65,21 @@ pub struct Statement {
 #[grammar = "machine/grammar.pest"]
 struct GrammarParser;
 
+struct ParseError;
+
+fn parse_expression(s: &str) -> Result<Expression, ParseError> {
+    match GrammarParser::parse(Rule::expression, s) {
+        Ok(p) => {
+            match p.as_rule() {
+                Rule::binary {
+
+                    },
+            }
+        }
+        Err(e) => {}
+    }
+}
+
 #[test]
 fn test_parse_expression() {
     eprintln!(
