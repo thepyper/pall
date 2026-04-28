@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use super::expression::Statement;
+use super::statement::Statement;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Action

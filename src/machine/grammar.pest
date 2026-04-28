@@ -1,52 +1,88 @@
 WHITESPACE = _{ " " | "\t" }
 
-// Generic rules
 alpha     = _{ 'a' .. 'z' | 'A' .. 'Z' }
 dec_digit = _{ '0' .. '9' }
 hex_digit = _{ dec_digit | 'a' .. 'f' | 'A' .. 'F' }
+oct_digit = _{ '0' .. '7' }
+bin_digit = _{ '0' .. '1' }
 
-// Hex integer rules
-hex_integer_value  =  { hex_digit+ }
-_hex_integer_value = _{ "0x" ~ hex_integer_value }
+hex_integer  = { "0x" ~ hex_digit+ }
+oct_integer  = { "0o" ~ oct_digit+ }
+bin_integer  = { "0b" ~ bin_digit+ }
+dec_integer  = { dec_digit+ }
+_integer_value = _{ hex_integer | oct_integer | bin_integer | dec_integer }
 
-// Dec integer rules
-dec_integer_value = { dec_digit+ }
+float = { dec_digit+ ~ "." ~ dec_digit+ }
 
-// Integer rules
-_integer_value = _{ _hex_integer_value | dec_integer_value }
+escape_char = _{ "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "'" | "0" | "b" | "f") }
+string_dq  = { "\"" ~ (escape_char | (!"\"" ~ !"\\" ~ ANY))* ~ "\"" }
+string_sq  = { "'" ~ (escape_char | (!"'" ~ !"\\" ~ ANY))* ~ "'" }
+_string = _{ string_dq | string_sq }
 
-// Float rules
-float_mantissa = { dec_digit+ ~ "." ~ dec_digit+ }
-float_exponent = { dec_digit+ }
-float_value    = { float_mantissa ~ (("E+" | "e+") ~ float_exponent)? }
-
-// String rules
-string_1  =  { (!"'" ~ ANY)* }
-string_2  =  { (!"\"" ~ ANY)* }
-_string_1 = _{ "'" ~ string_1 ~ "'" }
-_string_2 = _{ "\"" ~ string_2 ~ "\"" }
-_string   = _{ _string_1 | _string_2 }
-
-// Identifier rules
 identifier = { ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
 
-// Value rules
-_value = _{ float_value | _integer_value | _string | identifier }
+_float = _{ float }
+_value = _{ _float | _integer_value | _string | identifier }
 
-// Parenthesis rules
-parenthesis  =  { (binary | _value) }
-_parenthesis = _{ "(" ~ parenthesis ~ ")" }
+_parenthesis = { "(" ~ expression ~ ")" }
 
-_unary_expression = _{ _parenthesis | _value }
+// ── Named token rules for visitor ────────────────────────────────────────────
+LOGICAL_OR   = { "||" }
+LOGICAL_AND  = { "&&" }
+LOGICAL_XOR  = { "^^" }
+BITWISE_OR   = { "|" }
+BITWISE_XOR  = { "^" }
+BITWISE_AND  = { "&" }
+EQ           = { "==" }
+NEQ          = { "!=" }
+LT           = { "<" }
+LE           = { "<=" }
+GT           = { ">" }
+GE           = { ">=" }
+ADD          = { "+" }
+SUB          = { "-" }
+MUL          = { "*" }
+DIV          = { "/" }
+MOD          = { "%" }
+NOT          = { "!" }
+BIT_NOT      = { "~" }
+ASSIGN           = { "=" }
+ADD_ASSIGN       = { "+=" }
+SUB_ASSIGN       = { "-=" }
+MUL_ASSIGN       = { "*=" }
+DIV_ASSIGN       = { "/=" }
+MOD_ASSIGN       = { "%=" }
+AND_ASSIGN       = { "&=" }
+OR_ASSIGN        = { "|=" }
+XOR_ASSIGN       = { "^=" }
+LOGICAL_AND_ASSIGN  = { "&&=" }
+LOGICAL_OR_ASSIGN   = { "||=" }
+LOGICAL_XOR_ASSIGN  = { "^^=" }
 
-binary_operator = { "&&" | "||" | "^^" | "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" | "==" | "!=" | "<=" | ">=" | "<" | ">" }
+// ── Precedence rules (low → high) ───────────────────────────────────────────
+logical_or   = { logical_and ~ (LOGICAL_OR ~ logical_and)* }
+logical_and  = { logical_xor ~ (LOGICAL_AND ~ logical_xor)* }
+logical_xor  = { bitwise_or ~ (LOGICAL_XOR ~ bitwise_or)* }
+bitwise_or   = { bitwise_xor ~ (BITWISE_OR ~ bitwise_xor)* }
+bitwise_xor  = { bitwise_and ~ (BITWISE_XOR ~ bitwise_and)* }
+bitwise_and  = { equality ~ (BITWISE_AND ~ equality)* }
+equality     = { comparison ~ ((EQ | NEQ) ~ comparison)* }
+comparison   = { additive ~ ((LE | GE | LT | GT) ~ additive)* }
+additive     = { multiplicative ~ ((ADD | SUB) ~ multiplicative)* }
+multiplicative = { unary ~ ((MUL | DIV | MOD) ~ unary)* }
 
-binary = { _unary_expression ~ binary_operator ~ expression }
+primary = { _parenthesis | _value }
+unary = { (SUB | NOT | BIT_NOT) ~ unary | primary }
 
-expression = { binary | _parenthesis | _value }
+full_expression = { SOI ~ logical_or ~ EOI }
 
-assignment_operator = { "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" }
+statement = { SOI ~ identifier ~ assignment_operator ~ expression ~ EOI }
 
-statement = { identifier ~ assignment_operator ~ expression }
+expression = { logical_or }
+assignment_operator = _{
+    ASSIGN | ADD_ASSIGN | SUB_ASSIGN | MUL_ASSIGN | DIV_ASSIGN | MOD_ASSIGN |
+    AND_ASSIGN | OR_ASSIGN | XOR_ASSIGN |
+    LOGICAL_AND_ASSIGN | LOGICAL_OR_ASSIGN | LOGICAL_XOR_ASSIGN
+}
 
-link = { identifier ~ "." ~ identifier }
+link = { SOI ~ identifier ~ "." ~ identifier ~ EOI }

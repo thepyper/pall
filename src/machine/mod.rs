@@ -4,11 +4,16 @@ mod connections;
 mod variables;
 mod expression;
 mod actions;
+mod statement;
+mod link;
+pub mod parser;
 
 pub use types::{Type, Value};
-pub use connections::{Link, Input, Output};
+pub use link::Link;
+pub use connections::{Input, Output};
 pub use variables::{Signal, Timer, Variable, Constant};
-pub use expression::{Reference, Statement};
+pub use expression::{Reference, Expression, BinaryOperator, UnaryOperator};
+pub use statement::{Statement, AssignmentOperator};
 pub use actions::{Action, Transition, State};
 
 use std::collections::HashMap;

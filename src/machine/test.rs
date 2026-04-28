@@ -20,7 +20,7 @@ fn test_deserialize_machine()
 {
     use crate::machine::StateMachine;
 
-    let x: StateMachine = serde_yaml::from_str(r###"
+    let _x: StateMachine = serde_yaml::from_str(r###"
 id: test_machine
 states:
     initial:
