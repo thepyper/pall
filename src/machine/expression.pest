@@ -1,6 +1,6 @@
 
-dec_digit = { '0' .. '9' }
-hex_digit = { dec_digit | 'a' .. 'f' | 'A' .. 'F' }
+dec_digit = _{ '0' .. '9' }
+hex_digit = _{ dec_digit | 'a' .. 'f' | 'A' .. 'F' }
 
 hex_integer_value = { "0x" ~ hex_digit+ }
 dec_integer_value = { dec_digit+ }
@@ -10,11 +10,11 @@ float_value   = { dec_digit+ ~ "." ~ dec_digit+ }
 string        = { "\"" ~ dec_digit ~ "\"" } // TODO rifare
 reference     = { dec_digit+ } // TODO rifare
 
-value = { integer_value | float_value | string | reference }
+value = _{ integer_value | float_value | string | reference }
 
-parenthesis = { "(" ~ ( value | binary ) ~ ")" }
+parenthesis = _{ "(" ~ ( value | binary ) ~ ")" }
 
-unary_expression = { value | parenthesis }
+unary_expression = _{ value | parenthesis }
 
 binary_operator = { "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" }
 
@@ -22,4 +22,4 @@ binary = { unary_expression ~ binary_operator ~ expression }
 
 expression = { value | parenthesis | binary }
 
-expression_list = { (expression ~ ";") | expression }
+expression_list = { (expression ~ ";")* ~ expression }
