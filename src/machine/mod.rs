@@ -8,6 +8,13 @@ pub enum Type
     String,
 }
 
+pub enum Value
+{
+    Integer(i64),
+    Float(f64),
+    String(String),
+}
+
 pub struct Link
 {
     pub machine: String,
@@ -20,9 +27,38 @@ pub struct Input
     pub link: Option<Link>,
 }
 
+pub struct Output
+{
+    pub type: Type,
+}
+
+pub struct Signal
+{
+    pub type: Type,
+    pub when: Expression,
+}
+
+pub struct Timer
+{
+    pub type: Type,
+    pub when: Option<Expression>,
+}
+
+pub struct Variable
+{
+    pub type: Type,
+    pub initial: Option<Value>,
+}
+
+pub struct Constant
+{
+    pub type: Type,
+    pub value: Value,
+}
+
 pub struct Action
 {
-
+    pub do: Statement,
 }
 
 pub struct State
@@ -39,4 +75,5 @@ pub struct StateMachine
     pub signals: HashMap<String, Signal>,
     pub timers: HashMap<String, Timer>,
     pub variables: HashMap<String, Variable>,
+    pub constants: HashMap<String, Constant>,
 }
