@@ -8,7 +8,7 @@ mod statement;
 mod link;
 pub mod parser;
 
-pub use types::{Type, Value};
+pub use types::{Type, Value, IntegerValue, FloatValue, StringValue, IntegerFmt, FloatFmt, StringFmt};
 pub use link::Link;
 pub use connections::{Input, Output};
 pub use variables::{Signal, Timer, Variable, Constant};
