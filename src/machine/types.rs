@@ -1,5 +1,25 @@
 use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub enum IntegerFmt {
+    Dec,
+    Hex,
+    Oct,
+    Bin,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub enum FloatFmt {
+    Decimal,
+    Scientific,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
+pub enum StringFmt {
+    DoubleQuote,
+    SingleQuote,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum Type
 {
