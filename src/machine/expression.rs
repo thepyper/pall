@@ -60,3 +60,15 @@ impl FullExpression {
         Ok(Self { raw: input.to_string(), expression })
     }
 }
+
+use serde::Serialize as SerdeSerialize;
+use serde::Serializer;
+
+impl SerdeSerialize for FullExpression {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.raw)
+    }
+}
