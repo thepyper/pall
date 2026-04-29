@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use super::expression::Expression;
 use super::parser::ParseError;
 
@@ -35,5 +35,14 @@ impl FullStatement {
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         let statement = super::parser::parse_statement(input)?;
         Ok(Self { raw: input.to_string(), statement })
+    }
+}
+
+impl Serialize for FullStatement {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.raw)
     }
 }
