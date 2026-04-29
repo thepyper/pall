@@ -25,7 +25,7 @@ pub struct Statement {
     pub expression: Expression,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FullStatement {
     pub raw: String,
     pub statement: Statement,
