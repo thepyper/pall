@@ -31,9 +31,26 @@ pub enum Type
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub enum Value
-{
-    Integer(i64),
-    Float(f64),
-    String(String),
+pub struct IntegerValue {
+    pub value: i64,
+    pub fmt: IntegerFmt,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct FloatValue {
+    pub value: f64,
+    pub fmt: FloatFmt,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct StringValue {
+    pub value: String,
+    pub fmt: StringFmt,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub enum Value {
+    Integer(IntegerValue),
+    Float(FloatValue),
+    String(StringValue),
 }
