@@ -101,17 +101,29 @@ pub enum Expression {
 }
 ```
 
-### 5. `Statement` Uses `FullExpression`
+### 5. `FullStatement` Wrapper (Mirrors `FullExpression`)
 
+A new `FullStatement` wrapper mirrors the `FullExpression` pattern:
+
+```rust
+pub struct FullStatement {
+    pub raw: String,              // always present, never optional
+    pub statement: Statement,
+}
+```
+
+The parser returns plain `Statement` (with `expression: Expression`, NOT `FullExpression`).
+
+Plain `Statement` struct:
 ```rust
 pub struct Statement {
     pub target: String,
     pub operator: AssignmentOperator,
-    pub expression: FullExpression,   // changed from Expression
+    pub expression: Expression,   // stays as Expression, NOT FullExpression
 }
 ```
 
-`Statement` has no `raw` field of its own — it carries the `raw` through `expression.raw`.
+This keeps "Full" types out of the parser module. The parser works only with raw AST types.
 
 ### 6. `Link` Stays as-Is (No Format Info Needed)
 
@@ -132,25 +144,25 @@ Each type implements `Serialize`/`Deserialize` manually to serialize as YAML str
 - **Serialize:** Outputs YAML string equal to `raw`
 - **Deserialize:** Calls the parser, returns `FullExpression { raw: input.into(), expression }`
 
-**Statement:**
+**FullStatement:**
 - **Serialize:** Outputs YAML string `"{target} {operator_string} {expression.raw}"` (space-separated)
-- **Deserialize:** Calls parser, wraps result: `Statement { expression: FullExpression { raw: input.into(), expression } }`
+- **Deserialize:** Calls the parser, returns `FullStatement { raw: input.into(), statement }`
 
 **Link:**
 - **Serialize:** Outputs YAML string `"{id}.{output}"`
-- **Deserialize:** Calls parser
+- **Deserialize:** Calls the parser
 
 ### 8. Field Changes in `StateMachine` Types
 
 ```rust
 pub struct Action {
     pub when: Option<FullExpression>,     // was Option<Expression>
-    pub r#do: Vec<Statement>,             // unchanged (Statement already has FullExpression)
+    pub r#do: Vec<FullStatement>,         // was Vec<Statement>
 }
 
 pub struct Transition {
     pub when: Option<FullExpression>,     // was Option<Expression>
-    pub r#do: Vec<Statement>,             // unchanged
+    pub r#do: Vec<FullStatement>,         // was Vec<Statement>
     pub target: String,
 }
 ```
@@ -166,7 +178,7 @@ Statement format: `"{target} {operator_str} {expression.raw}"`
 
 - Parser module already exists (`src/machine/parser/`)
 - `parse_expression(input)` → `Result<Expression, ParseError>` (existing)
-- `parse_statement(input)` → `Result<Statement, ParseError>` (existing, but `Statement` needs update for `FullExpression`)
+- `parse_statement(input)` → `Result<Statement, ParseError>` (existing, `Statement` unchanged)
 - `parse_link(input)` → `Result<Link, ParseError>` (existing)
 
 New method:
@@ -202,18 +214,19 @@ These AST nodes have no format-specific data. They remain as-is.
 
 ### 17. All Types Are `pub`
 
-Every new and modified type is public: `FullExpression`, `IntegerValue`, `FloatValue`, `StringValue`, `IntegerFmt`, `FloatFmt`, `StringFmt`.
+Every new and modified type is public: `FullExpression`, `FullStatement`, `IntegerValue`, `FloatValue`, `StringValue`, `IntegerFmt`, `FloatFmt`, `StringFmt`.
 
-### 18. `FullExpression::parse()` Returns `Result`
+### 18. `FullExpression::parse()` and `FullStatement::parse()` Return `Result`
 
-For error handling, `FullExpression::parse(&str) -> Result<FullExpression, ParseError>`. Parser errors propagate via `ParseError`.
+For error handling, `FullExpression::parse(&str) -> Result<FullExpression, ParseError>` and `FullStatement::parse(&str) -> Result<FullStatement, ParseError>`. Parser errors propagate via `ParseError`.
 
 ### 19. File Locations
 
 - `IntegerFmt`, `FloatFmt`, `StringFmt`, `Value`, `IntegerValue`, `FloatValue`, `StringValue` → `types.rs`
 - `FullExpression` → `expression.rs`
 - Parser integration methods → `parser/mod.rs` and `FullExpression` impl in `expression.rs`
-- `Statement`, `Link` custom Serialize/Deserialize → `statement.rs`, `link.rs`
+- `FullStatement` → `statement.rs` | Add `FullStatement` struct; add `FullStatement::parse()`; add custom `Serialize`/`Deserialize` for `FullStatement`
+- `Link` custom Serialize/Deserialize → `link.rs`
 
 ---
 
@@ -223,15 +236,16 @@ For error handling, `FullExpression::parse(&str) -> Result<FullExpression, Parse
 |------|---------|
 | `types.rs` | Add `IntegerFmt`, `FloatFmt`, `StringFmt`; restructure `Value` to use `IntegerValue`, `FloatValue`, `StringValue` |
 | `expression.rs` | Add `FullExpression` struct; add `FullExpression::parse()`; add custom `Serialize`/`Deserialize` for `FullExpression` |
-| `statement.rs` | Change `expression: Expression` → `expression: FullExpression`; add custom `Serialize`/`Deserialize` |
+| `statement.rs` | Keep `Statement` unchanged (expression stays as `Expression`); add `FullStatement` struct; add `FullStatement::parse()`; add custom `Serialize`/`Deserialize` for `FullStatement` |
 | `link.rs` | Add custom `Serialize`/`Deserialize` (no struct changes) |
-| `actions.rs` | Change `when: Option<Expression>` → `when: Option<FullExpression>` in `Action` and `Transition` |
+| `actions.rs` | Change `when: Option<Expression>` → `when: Option<FullExpression>`; change `r#do: Vec<Statement>` → `r#do: Vec<FullStatement>` in `Action` and `Transition` |
 | `parser/mod.rs` | Add `FullExpression::parse` integration |
 | `mod.rs` | Update re-exports if needed |
 
 ## Not Changed
 
 - `Expression` enum (structurally unchanged, just references new `Value` types)
+- `Statement` struct (unchanged: `expression: Expression`, NOT `FullExpression`)
 - `UnaryOperator`, `BinaryOperator`, `Reference`
 - `AssignmentOperator`
 - `Input`, `Output`, `Signal`, `Timer`, `Variable`, `Constant`, `Action` (struct), `Transition` (struct), `State`
