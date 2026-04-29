@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use super::expression::Expression;
+use super::parser::ParseError;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub enum AssignmentOperator {
     Assign,             // =
     AddAssign,          // +=
@@ -17,9 +18,22 @@ pub enum AssignmentOperator {
     LogicalXorAssign,   // ^^=
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Statement {
     pub target: String,
     pub operator: AssignmentOperator,
     pub expression: Expression,
+}
+
+#[derive(Debug, Clone)]
+pub struct FullStatement {
+    pub raw: String,
+    pub statement: Statement,
+}
+
+impl FullStatement {
+    pub fn parse(input: &str) -> Result<Self, ParseError> {
+        let statement = super::parser::parse_statement(input)?;
+        Ok(Self { raw: input.to_string(), statement })
+    }
 }

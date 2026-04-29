@@ -13,7 +13,7 @@ pub use link::Link;
 pub use connections::{Input, Output};
 pub use variables::{Signal, Timer, Variable, Constant};
 pub use expression::{Reference, Expression, BinaryOperator, UnaryOperator, FullExpression};
-pub use statement::{Statement, AssignmentOperator};
+pub use statement::{Statement, AssignmentOperator, FullStatement};
 pub use actions::{Action, Transition, State};
 
 use std::collections::HashMap;
