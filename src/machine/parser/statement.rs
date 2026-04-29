@@ -75,7 +75,7 @@ mod tests {
     use super::*;
     use crate::machine::statement::AssignmentOperator;
     use crate::machine::expression::{Expression, Reference, BinaryOperator, UnaryOperator};
-    use crate::machine::types::Value;
+    use crate::machine::types::{IntegerValue, IntegerFmt, Value};
 
     fn expect_stmt(input: &str) -> Statement {
         parse_statement(input).unwrap_or_else(|e| panic!("parse failed for '{}': {}", input, e))
@@ -86,7 +86,7 @@ mod tests {
         let s = expect_stmt("x = 1");
         assert_eq!(s.target, "x");
         assert_eq!(s.operator, AssignmentOperator::Assign);
-        assert_eq!(s.expression, Expression::Value(Value::Integer(1)));
+        assert_eq!(s.expression, Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec })));
     }
 
     #[test]
@@ -128,11 +128,11 @@ mod tests {
         let s = expect_stmt("x = 1 + 5 * 2");
         match s.expression {
             Expression::Binary(l, BinaryOperator::Add, r) => {
-                assert_eq!(*l, Expression::Value(Value::Integer(1)));
+                assert_eq!(*l, Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec })));
                 match *r {
                     Expression::Binary(ll, BinaryOperator::Mul, rr) => {
-                        assert_eq!(*ll, Expression::Value(Value::Integer(5)));
-                        assert_eq!(*rr, Expression::Value(Value::Integer(2)));
+                        assert_eq!(*ll, Expression::Value(Value::Integer(IntegerValue { value: 5, fmt: IntegerFmt::Dec })));
+                        assert_eq!(*rr, Expression::Value(Value::Integer(IntegerValue { value: 2, fmt: IntegerFmt::Dec })));
                     }
                     x => panic!("expected mul on right: {:?}", x),
                 }
@@ -149,11 +149,11 @@ mod tests {
             Expression::Binary(l, BinaryOperator::Add, r) => {
                 match *l {
                     Expression::Unary(UnaryOperator::Negate, opnd) => {
-                        assert_eq!(*opnd, Expression::Value(Value::Integer(1)));
+                        assert_eq!(*opnd, Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec })));
                     }
                     x => panic!("expected unary negate: {:?}", x),
                 }
-                assert_eq!(*r, Expression::Value(Value::Integer(2)));
+                assert_eq!(*r, Expression::Value(Value::Integer(IntegerValue { value: 2, fmt: IntegerFmt::Dec })));
             }
             x => panic!("expected add: {:?}", x),
         }
@@ -173,12 +173,12 @@ mod tests {
         assert_eq!(s.target, "z");
         match s.expression {
             Expression::Binary(l, BinaryOperator::Add, r) => {
-                assert_eq!(*l, Expression::Value(Value::Integer(9)));
+                assert_eq!(*l, Expression::Value(Value::Integer(IntegerValue { value: 9, fmt: IntegerFmt::Dec })));
                 match *r {
                     Expression::Parenthesis(inner) => {
                         match *inner {
                             Expression::Binary(ll, BinaryOperator::Mul, lr) => {
-                                assert_eq!(*ll, Expression::Value(Value::Integer(5)));
+                                assert_eq!(*ll, Expression::Value(Value::Integer(IntegerValue { value: 5, fmt: IntegerFmt::Dec })));
                                 assert_eq!(*lr, Expression::Reference(Reference{target:"y".into()}));
                             }
                             x => panic!("expected mul in parens: {:?}", x),

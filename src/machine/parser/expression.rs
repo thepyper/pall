@@ -2,7 +2,7 @@ use pest::iterators::Pair;
 use pest::Parser;
 
 use super::{GrammarParser, Rule, ParseError};
-use crate::machine::types::Value;
+use crate::machine::types::{IntegerFmt, IntegerValue, FloatFmt, FloatValue, StringFmt, StringValue, Value};
 use crate::machine::expression::{Expression, Reference, UnaryOperator, BinaryOperator};
 
 /// Parse a plain string into an Expression AST.
@@ -73,24 +73,27 @@ pub(crate) fn expression_from_pair(pair: Pair<Rule>) -> Result<Expression, Parse
         }
 
         // Integer types
-        Rule::dec_integer => Ok(Expression::Value(Value::Integer(parse_integer(pair.as_str().trim())))),
+        Rule::dec_integer => {
+            let val = parse_integer(pair.as_str().trim());
+            Ok(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Dec })))
+        }
         Rule::hex_integer => {
             let raw = pair.as_str().trim();
             let val = i64::from_str_radix(&raw[2..], 16)
                 .map_err(|_| ParseError::new(format!("invalid hex: {}", raw)))?;
-            Ok(Expression::Value(Value::Integer(val)))
+            Ok(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Hex })))
         }
         Rule::oct_integer => {
             let raw = pair.as_str().trim();
             let val = i64::from_str_radix(&raw[2..], 8)
                 .map_err(|_| ParseError::new(format!("invalid octal: {}", raw)))?;
-            Ok(Expression::Value(Value::Integer(val)))
+            Ok(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Oct })))
         }
         Rule::bin_integer => {
             let raw = pair.as_str().trim();
             let val = i64::from_str_radix(&raw[2..], 2)
                 .map_err(|_| ParseError::new(format!("invalid binary: {}", raw)))?;
-            Ok(Expression::Value(Value::Integer(val)))
+            Ok(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Bin })))
         }
 
         // Float
@@ -98,17 +101,22 @@ pub(crate) fn expression_from_pair(pair: Pair<Rule>) -> Result<Expression, Parse
             let s = pair.as_str().trim();
             let val = s.parse::<f64>()
                 .map_err(|_| ParseError::new(format!("invalid float: {}", s)))?;
-            Ok(Expression::Value(Value::Float(val)))
+            let fmt = if s.to_lowercase().contains('e') {
+                FloatFmt::Scientific
+            } else {
+                FloatFmt::Decimal
+            };
+            Ok(Expression::Value(Value::Float(FloatValue { value: val, fmt })))
         },
 
         // Strings
         Rule::string_dq => {
             let inner = &pair.as_str()[1..pair.as_str().len()-1];
-            Ok(Expression::Value(Value::String(unescape_string(inner))))
+            Ok(Expression::Value(Value::String(StringValue { value: unescape_string(inner), fmt: StringFmt::DoubleQuote })))
         }
         Rule::string_sq => {
             let inner = &pair.as_str()[1..pair.as_str().len()-1];
-            Ok(Expression::Value(Value::String(unescape_string(inner))))
+            Ok(Expression::Value(Value::String(StringValue { value: unescape_string(inner), fmt: StringFmt::SingleQuote })))
         }
 
         // Identifier → Reference
@@ -221,7 +229,7 @@ fn unescape_string(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine::types::Value;
+    use crate::machine::types::{IntegerValue, FloatValue, StringValue, IntegerFmt, FloatFmt, StringFmt, Value};
     use crate::machine::expression::{BinaryOperator, UnaryOperator};
 
     fn expect_parse(input: &str) -> Expression {
@@ -230,42 +238,42 @@ mod tests {
 
     #[test]
     fn test_literal_int() {
-        assert_eq!(expect_parse("42"), Expression::Value(Value::Integer(42)));
+        assert_eq!(expect_parse("42"), Expression::Value(Value::Integer(IntegerValue { value: 42, fmt: IntegerFmt::Dec })));
     }
 
     #[test]
     fn test_literal_hex() {
-        assert_eq!(expect_parse("0xff"), Expression::Value(Value::Integer(255)));
+        assert_eq!(expect_parse("0xff"), Expression::Value(Value::Integer(IntegerValue { value: 255, fmt: IntegerFmt::Hex })));
     }
 
     #[test]
     fn test_literal_octal() {
-        assert_eq!(expect_parse("0o17"), Expression::Value(Value::Integer(15)));
+        assert_eq!(expect_parse("0o17"), Expression::Value(Value::Integer(IntegerValue { value: 15, fmt: IntegerFmt::Oct })));
     }
 
     #[test]
     fn test_literal_binary() {
-        assert_eq!(expect_parse("0b1010"), Expression::Value(Value::Integer(10)));
+        assert_eq!(expect_parse("0b1010"), Expression::Value(Value::Integer(IntegerValue { value: 10, fmt: IntegerFmt::Bin })));
     }
 
     #[test]
     fn test_literal_float() {
-        assert_eq!(expect_parse("3.14"), Expression::Value(Value::Float(3.14)));
+        assert_eq!(expect_parse("3.14"), Expression::Value(Value::Float(FloatValue { value: 3.14, fmt: FloatFmt::Decimal })));
     }
 
     #[test]
     fn test_literal_string_dq() {
-        assert_eq!(expect_parse("\"hello\""), Expression::Value(Value::String("hello".into())));
+        assert_eq!(expect_parse("\"hello\""), Expression::Value(Value::String(StringValue { value: "hello".into(), fmt: StringFmt::DoubleQuote })));
     }
 
     #[test]
     fn test_literal_string_sq() {
-        assert_eq!(expect_parse("'world'"), Expression::Value(Value::String("world".into())));
+        assert_eq!(expect_parse("'world'"), Expression::Value(Value::String(StringValue { value: "world".into(), fmt: StringFmt::SingleQuote })));
     }
 
     #[test]
     fn test_literal_string_escape() {
-        assert_eq!(expect_parse("\"a\\nb\""), Expression::Value(Value::String("a\nb".into())));
+        assert_eq!(expect_parse("\"a\\nb\""), Expression::Value(Value::String(StringValue { value: "a\nb".into(), fmt: StringFmt::DoubleQuote })));
     }
 
     #[test]
@@ -277,8 +285,8 @@ mod tests {
     fn test_addition() {
         match expect_parse("1 + 2") {
             Expression::Binary(l, BinaryOperator::Add, r) => {
-                assert_eq!(*l, Expression::Value(Value::Integer(1)));
-                assert_eq!(*r, Expression::Value(Value::Integer(2)));
+                assert_eq!(*l, Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec })));
+                assert_eq!(*r, Expression::Value(Value::Integer(IntegerValue { value: 2, fmt: IntegerFmt::Dec })));
             }
             x => panic!("expected binary add, got {:?}", x),
         }
@@ -289,11 +297,11 @@ mod tests {
         // 1 + 2 * 3 → 1 + (2 * 3)
         match expect_parse("1 + 2 * 3") {
             Expression::Binary(l, BinaryOperator::Add, r) => {
-                assert_eq!(*l, Expression::Value(Value::Integer(1)));
+                assert_eq!(*l, Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec })));
                 match *r {
                     Expression::Binary(ll, BinaryOperator::Mul, rr) => {
-                        assert_eq!(*ll, Expression::Value(Value::Integer(2)));
-                        assert_eq!(*rr, Expression::Value(Value::Integer(3)));
+                        assert_eq!(*ll, Expression::Value(Value::Integer(IntegerValue { value: 2, fmt: IntegerFmt::Dec })));
+                        assert_eq!(*rr, Expression::Value(Value::Integer(IntegerValue { value: 3, fmt: IntegerFmt::Dec })));
                     }
                     x => panic!("expected mul on right: {:?}", x),
                 }
@@ -306,7 +314,7 @@ mod tests {
     fn test_unary_negate() {
         match expect_parse("-5") {
             Expression::Unary(UnaryOperator::Negate, op) => {
-                assert_eq!(*op, Expression::Value(Value::Integer(5)));
+                assert_eq!(*op, Expression::Value(Value::Integer(IntegerValue { value: 5, fmt: IntegerFmt::Dec })));
             }
             x => panic!("expected unary negate: {:?}", x),
         }
@@ -350,7 +358,7 @@ mod tests {
         // Top level should be logical_or
         match expr {
             Expression::Binary(left, BinaryOperator::LogicalOr, right) => {
-                assert_eq!(*left, Expression::Value(Value::Integer(1)));
+                assert_eq!(*left, Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec })));
                 assert!(matches!(*right, Expression::Binary(_, _, _)));
             }
             x => panic!("expected || at top: {:?}", x),
@@ -368,7 +376,7 @@ mod tests {
                     }
                     x => panic!("expected paren: {:?}", x),
                 }
-                assert_eq!(*r, Expression::Value(Value::Integer(3)));
+                assert_eq!(*r, Expression::Value(Value::Integer(IntegerValue { value: 3, fmt: IntegerFmt::Dec })));
             }
             x => panic!("expected mul: {:?}", x),
         }
@@ -449,7 +457,7 @@ mod tests {
                     }
                     x => panic!("expected unary negate: {:?}", x),
                 }
-                assert_eq!(*r, Expression::Value(Value::Integer(0)));
+                assert_eq!(*r, Expression::Value(Value::Integer(IntegerValue { value: 0, fmt: IntegerFmt::Dec })));
             }
             x => panic!("expected <: {:?}", x),
         }
