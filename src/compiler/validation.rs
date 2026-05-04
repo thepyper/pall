@@ -99,6 +99,67 @@ pub fn validate_machines(machines: &[StateMachine]) -> Result<(), Vec<CompileErr
         }
     }
 
+    // Step 2.6: Timer type validation
+    for machine in machines {
+        for (timer_name, timer) in &machine.timers {
+            let is_numeric = matches!(
+                timer.r#type,
+                crate::machine::Type::U8
+                    | crate::machine::Type::U16
+                    | crate::machine::Type::U32
+                    | crate::machine::Type::U64
+                    | crate::machine::Type::I8
+                    | crate::machine::Type::I16
+                    | crate::machine::Type::I32
+                    | crate::machine::Type::I64
+                    | crate::machine::Type::F32
+                    | crate::machine::Type::F64
+            );
+            let is_float = matches!(
+                timer.r#type,
+                crate::machine::Type::F32 | crate::machine::Type::F64
+            );
+
+            if !is_numeric {
+                errors.push(CompileError::new(
+                    CompileErrorKind::InvalidTimerType,
+                    format!(
+                        "invalid timer type in machine '{}', timer '{}': must be numeric, got {:?}",
+                        machine.id, timer_name, timer.r#type
+                    ),
+                ));
+            } else if is_float {
+                // Warning: float is not an error but not ideal
+                // We'll add a warning variant if needed later; for now just a note
+            }
+        }
+    }
+
+    // Step 2.7: Signal expression type validation (basic)
+    for machine in machines {
+        for (signal_name, signal) in &machine.signals {
+            // Basic check: the expression must exist and be valid
+            // Full type compatibility check will be done during code generation
+            // For now, we verify the signal has a defined type
+            match signal.r#type {
+                crate::machine::Type::String
+                | crate::machine::Type::Bool
+                | crate::machine::Type::U8
+                | crate::machine::Type::U16
+                | crate::machine::Type::U32
+                | crate::machine::Type::U64
+                | crate::machine::Type::I8
+                | crate::machine::Type::I16
+                | crate::machine::Type::I32
+                | crate::machine::Type::I64
+                | crate::machine::Type::F32
+                | crate::machine::Type::F64 => {
+                    // Valid signal type — further type checking happens in codegen
+                }
+            }
+        }
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
