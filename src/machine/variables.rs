@@ -7,7 +7,9 @@ use super::expression::Expression;
 pub struct Signal
 {
     pub r#type: Type,
-    pub when: Expression,
+    #[serde(default)]
+    pub output: bool,
+    pub expr: Expression,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
