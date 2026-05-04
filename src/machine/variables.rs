@@ -22,6 +22,8 @@ pub struct Variable
 {
     pub r#type: Type,
     pub initial: Option<Value>,
+    #[serde(default)]
+    pub output: bool,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
