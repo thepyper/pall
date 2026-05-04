@@ -59,9 +59,78 @@ pub fn validate_machines(machines: &[StateMachine]) -> Result<(), Vec<CompileErr
         }
     }
 
+    // Step 2.5: Link reference validation
+    // Build a map: (source_machine_id, var_name) -> target_machine_id
+    // Then verify each link points to valid machines and variables
+    let machine_by_id: std::collections::HashMap<&str, &StateMachine> =
+        machines.iter().map(|m| (m.id.as_str(), m)).collect();
+
+    for machine in machines {
+        for (input_name, input) in &machine.inputs {
+            if let Some(link) = &input.link {
+                // Check source machine exists
+                let source_machine = match machine_by_id.get(link.id.as_str()) {
+                    Some(m) => m,
+                    None => {
+                        errors.push(CompileError::new(
+                            CompileErrorKind::InvalidLink,
+                            format!(
+                                "invalid link in machine '{}', input '{}': source machine '{}' does not exist",
+                                machine.id, input_name, link.id
+                            ),
+                        ));
+                        continue;
+                    }
+                };
+
+                // Check source variable exists and has output: true
+                let source_has_var =
+                    check_output_var_exists(source_machine, &link.output);
+                if !source_has_var {
+                    errors.push(CompileError::new(
+                        CompileErrorKind::InvalidLink,
+                        format!(
+                            "invalid link in machine '{}', input '{}': source machine '{}', variable '{}' not found or not flagged as output",
+                            machine.id, input_name, link.id, link.output
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
     }
+}
+
+/// Check if a variable exists on the machine with output: true.
+fn check_output_var_exists(machine: &StateMachine, var_name: &str) -> bool {
+    // Check inputs
+    if let Some(input) = machine.inputs.get(var_name) {
+        if input.output {
+            return true;
+        }
+    }
+    // Check variables
+    if let Some(variable) = machine.variables.get(var_name) {
+        if variable.output {
+            return true;
+        }
+    }
+    // Check signals
+    if let Some(signal) = machine.signals.get(var_name) {
+        if signal.output {
+            return true;
+        }
+    }
+    // Check constants
+    if let Some(constant) = machine.constants.get(var_name) {
+        if constant.output {
+            return true;
+        }
+    }
+    false
 }
