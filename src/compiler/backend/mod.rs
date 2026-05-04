@@ -7,5 +7,8 @@ use super::FileSet;
 use crate::compiler::error::CompileError;
 
 pub trait Backend: Sync {
-    fn compile(&self, machines: &[StateMachine]) -> Result<FileSet, CompileError>;
+    fn compile(
+        &self,
+        machines: &[StateMachine],
+    ) -> Result<FileSet, Vec<CompileError>>;
 }
