@@ -16,12 +16,11 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
         "{{name}}" => {
             {{!-- Execute Actions --}}
             {{#each actions}}
-            {{!-- Action block {{@index}} --}}
             {{#if when_rust_code}}
-            if {{when_rust_code}} {
+            if {{{when_rust_code}}} {
             {{/if}}
             {{#each statements}}
-                {{this}}
+                {{{this}}}
             {{/each}}
             {{#if when_rust_code}}
             }
@@ -31,10 +30,10 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
             {{!-- Execute Transitions --}}
             {{#each transitions}}
             {{#if when_rust_code}}
-            if {{when_rust_code}} {
+            if {{{when_rust_code}}} {
             {{/if}}
             {{#each statements}}
-                {{this}}
+                {{{this}}}
             {{/each}}
             update.state = Some("{{target}}".to_string());
             return Ok(update);
@@ -57,7 +56,7 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
     {{!-- Calculate Signals (after state/transition logic) --}}
     {{#each signals}}
     {
-        let val: {{rust_type}} = {{expr_rust_code}};
+        let val: {{{rust_type}}} = {{{expr_rust_code}}};
         update.{{{name}}} = Some(val);
     }
     {{/each}}
@@ -66,13 +65,13 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
     {{#each timers}}
     {
         {{#if when_rust_code}}
-        if {{when_rust_code}} {
-            update.{{{name}}} = Some(state.{{{name}}} + tick_info.delta_ms as {{rust_type}});
+        if {{{when_rust_code}}} {
+            update.{{{name}}} = Some(state.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
         } else {
-            update.{{{name}}} = Some(0 as {{rust_type}});
+            update.{{{name}}} = Some(0 as {{{rust_type}}});
         }
         {{else}}
-        update.{{{name}}} = Some(state.{{{name}}} + tick_info.delta_ms as {{rust_type}});
+        update.{{{name}}} = Some(state.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
         {{/if}}
     }
     {{/each}}
@@ -89,16 +88,13 @@ pub fn init() -> Persistent {
         {{{name}}}: default(),
 {{/each}}
 {{#each variables}}
-        {{{name}}}: {{default_value}},
+        {{{name}}}: {{{default_value}}},
 {{/each}}
 {{#each signals}}
         {{{name}}}: default(),
 {{/each}}
 {{#each timers}}
-        {{{name}}}: 0 as {{rust_type}},
-{{/each}}
-{{#each constants}}
-        {{{name}}}: {{{name}}},
+        {{{name}}}: 0 as {{{rust_type}}},
 {{/each}}
     }
 }

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 {{#if constants}}
 // ── Constants ────────────────────────────────────────────────────────────────
 {{#each constants}}
-pub const {{name}}: {{rust_type}} = {{value}};
+pub const {{{name}}}: {{{rust_type}}} = {{{value}}};
 {{/each}}
 {{/if}}
 
@@ -27,9 +27,6 @@ pub struct Persistent {
     pub {{{name}}}: {{rust_type}},
     {{/each}}
     {{#each timers}}
-    pub {{{name}}}: {{rust_type}},
-    {{/each}}
-    {{#each constants}}
     pub {{{name}}}: {{rust_type}},
     {{/each}}
 }

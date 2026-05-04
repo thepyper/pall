@@ -60,7 +60,7 @@ pub fn build_types_data(machine: &crate::machine::StateMachine) -> serde_json::V
         constants.push(serde_json::json!({
             "name": ident,
             "rust_type": type_to_rust(&constant.r#type),
-            "value": value_to_literal(&constant.value),
+            "value": value_to_literal_typed(&constant.value, &constant.r#type),
             "output": constant.output,
         }));
     }
@@ -481,6 +481,50 @@ pub fn value_to_literal(v: &Value) -> String {
                 .replace('\r', "\\r");
             format!("\"{escaped}\"")
         }
+    }
+}
+
+/// Value to Rust literal with explicit type suffix.
+pub fn value_to_literal_typed(v: &Value, target_type: &crate::machine::Type) -> String {
+    match v {
+        Value::Integer(iv) => format!("{}{}", iv.value, int_suffix_for_type(target_type)),
+        Value::Float(fv) => {
+            let s = format!("{}", fv.value);
+            let suffix = match target_type {
+                crate::machine::Type::F32 => "f32",
+                crate::machine::Type::F64 => "f64",
+                _ => "f64",
+            };
+            if s.contains('e') || s.contains('E') {
+                format!("{s} as {suffix}")
+            } else {
+                format!("{s}.0 as {suffix}")
+            }
+        }
+        Value::String(sv) => {
+            let escaped = sv
+                .value
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n")
+                .replace('\t', "\\t")
+                .replace('\r', "\\r");
+            format!("\"{escaped}\"")
+        }
+    }
+}
+
+fn int_suffix_for_type(t: &crate::machine::Type) -> &'static str {
+    match t {
+        crate::machine::Type::U8 => "u8",
+        crate::machine::Type::U16 => "u16",
+        crate::machine::Type::U32 => "u32",
+        crate::machine::Type::U64 => "u64",
+        crate::machine::Type::I8 => "i8",
+        crate::machine::Type::I16 => "i16",
+        crate::machine::Type::I32 => "i32",
+        crate::machine::Type::I64 => "i64",
+        _ => "i64", // default fallback
     }
 }
 
