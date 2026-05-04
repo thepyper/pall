@@ -1,1 +1,231 @@
-// Phase 4: Code generation helpers (fleshed out in subsequent steps)
+use crate::machine::{
+    Action, BinaryOperator, Constant, Expression, FullExpression, FullStatement,
+    Input, Signal, Statement, Timer, UnaryOperator, Value,
+};
+
+use super::error::CompileError;
+use super::error::CompileErrorKind;
+
+// ── Type mapping: Type → Rust type string ───────────────────────────────────
+
+pub fn type_to_rust(t: &crate::machine::Type) -> &str {
+    match t {
+        crate::machine::Type::Bool => "bool",
+        crate::machine::Type::U8 => "u8",
+        crate::machine::Type::U16 => "u16",
+        crate::machine::Type::U32 => "u32",
+        crate::machine::Type::U64 => "u64",
+        crate::machine::Type::I8 => "i8",
+        crate::machine::Type::I16 => "i16",
+        crate::machine::Type::I32 => "i32",
+        crate::machine::Type::I64 => "i64",
+        crate::machine::Type::F32 => "f32",
+        crate::machine::Type::F64 => "f64",
+        crate::machine::Type::String => "String",
+    }
+}
+
+/// Make a Rust-safe identifier (use r# prefix for keywords).
+fn safe_ident(name: &str) -> String {
+    let keywords = [
+        "as", "break", "const", "continue", "crate", "else", "enum", "extern",
+        "false", "fn", "for", "if", "impl", "in", "let", "loop", "match",
+        "mod", "move", "mut", "pub", "ref", "return", "self", "Self", "static",
+        "struct", "super", "trait", "type", "unsafe", "use", "where", "while",
+        "async", "await", "dyn", "abstract", "become", "box", "do", "final",
+        "macro", "override", "priv", "typeof", "unsized", "virtual", "yield",
+    ];
+    if keywords.contains(&name) {
+        format!("r#{name}")
+    } else {
+        name.to_string()
+    }
+}
+
+// ── Expression to Rust code string ──────────────────────────────────────────
+
+pub fn expr_to_rust(
+    expr: &Expression,
+    persistent_fields: &[String],
+) -> Result<String, CompileError> {
+    match expr {
+        Expression::Value(v) => Ok(value_to_rust(v)),
+        Expression::Reference(r) => {
+            let ident = safe_ident(&r.target);
+            Ok(format!("state.{ident}"))
+        }
+        Expression::Parenthesis(inner) => {
+            let inner_code = expr_to_rust(inner, persistent_fields)?;
+            Ok(format!("({inner_code})"))
+        }
+        Expression::Unary(op, inner) => {
+            let inner_code = expr_to_rust(inner, persistent_fields)?;
+            let rust_op = match op {
+                UnaryOperator::Negate => "-",
+                UnaryOperator::Not => "!",
+                UnaryOperator::BitNot => "~",
+            };
+            Ok(format!("{rust_op}{inner_code}"))
+        }
+        Expression::Binary(left, op, right) => {
+            let left_code = expr_to_rust(left, persistent_fields)?;
+            let right_code = expr_to_rust(right, persistent_fields)?;
+            let rust_op = match op {
+                BinaryOperator::Add => "+",
+                BinaryOperator::Sub => "-",
+                BinaryOperator::Mul => "*",
+                BinaryOperator::Div => "/",
+                BinaryOperator::Mod => "%",
+                BinaryOperator::And => " & ",
+                BinaryOperator::Or => " | ",
+                BinaryOperator::Xor => " ^ ",
+                BinaryOperator::BitAnd => " & ",
+                BinaryOperator::BitOr => " | ",
+                BinaryOperator::BitXor => " ^ ",
+                BinaryOperator::LogicalOr => " || ",
+                BinaryOperator::LogicalAnd => " && ",
+                BinaryOperator::LogicalXor => " ^^ ",
+                BinaryOperator::Equal => "==",
+                BinaryOperator::NotEqual => "!=",
+                BinaryOperator::LessThan => "<",
+                BinaryOperator::LessEqual => "<=",
+                BinaryOperator::GreaterThan => ">",
+                BinaryOperator::GreaterEqual => ">=",
+            };
+            Ok(format!("{left_code} {rust_op} {right_code}"))
+        }
+    }
+}
+
+fn value_to_rust(v: &Value) -> String {
+    match v {
+        Value::Integer(iv) => format!("{}i64", iv.value),
+        Value::Float(fv) => {
+            // Format as a Rust float literal
+            let s = format!("{}", fv.value);
+            if s.contains('e') || s.contains('E') {
+                s // already scientific
+            } else {
+                format!("{s}.0")
+            }
+        }
+        Value::String(sv) => {
+            // Escape special characters for Rust string literal
+            let escaped = sv
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n")
+                .replace('\t', "\\t")
+                .replace('\r', "\\r");
+            format!("\"{escaped}\"")
+        }
+    }
+}
+
+// ── Statement to Rust code string ───────────────────────────────────────────
+
+pub fn stmt_to_rust(
+    stmt: &FullStatement,
+    persistent_fields: &[String],
+) -> Result<String, CompileError> {
+    let target = safe_ident(&stmt.statement.target);
+    let expr_code = expr_to_rust(
+        &stmt.statement.expression,
+        persistent_fields,
+    )?;
+
+    let op = &stmt.statement.operator;
+    let rust_stmt = match op {
+        crate::machine::AssignmentOperator::Assign => {
+            format!("update.{target} = Some({expr_code});")
+        }
+        crate::machine::AssignmentOperator::AddAssign => {
+            format!("update.{target} = Some({target} + {expr_code});")
+        }
+        crate::machine::AssignmentOperator::SubAssign => {
+            format!("update.{target} = Some({target} - {expr_code});")
+        }
+        crate::machine::AssignmentOperator::MulAssign => {
+            format!("update.{target} = Some({target} * {expr_code});")
+        }
+        crate::machine::AssignmentOperator::DivAssign => {
+            format!("update.{target} = Some({target} / {expr_code});")
+        }
+        crate::machine::AssignmentOperator::ModAssign => {
+            format!("update.{target} = Some({target} % {expr_code});")
+        }
+        crate::machine::AssignmentOperator::AndAssign => {
+            format!("update.{target} = Some({target} & {expr_code});")
+        }
+        crate::machine::AssignmentOperator::OrAssign => {
+            format!("update.{target} = Some({target} | {expr_code});")
+        }
+        crate::machine::AssignmentOperator::XorAssign => {
+            format!("update.{target} = Some({target} ^ {expr_code});")
+        }
+        crate::machine::AssignmentOperator::LogicalAndAssign => {
+            format!("update.{target} = Some({target} && {expr_code});")
+        }
+        crate::machine::AssignmentOperator::LogicalOrAssign => {
+            format!("update.{target} = Some({target} || {expr_code});")
+        }
+        crate::machine::AssignmentOperator::LogicalXorAssign => {
+            format!("update.{target} = Some({target} ^^ {expr_code});")
+        }
+    };
+    Ok(rust_stmt)
+}
+
+// ── Default value for type ──────────────────────────────────────────────────
+
+pub fn default_value_for_type(t: &crate::machine::Type) -> String {
+    match t {
+        crate::machine::Type::Bool => "false".to_string(),
+        crate::machine::Type::U8
+        | crate::machine::Type::U16
+        | crate::machine::Type::U32
+        | crate::machine::Type::U64
+        | crate::machine::Type::I8
+        | crate::machine::Type::I16
+        | crate::machine::Type::I32
+        | crate::machine::Type::I64 => "0".to_string(),
+        crate::machine::Type::F32 | crate::machine::Type::F64 => "0.0".to_string(),
+        crate::machine::Type::String => "String::new()".to_string(),
+    }
+}
+
+// ── Value to Rust literal ───────────────────────────────────────────────────
+
+pub fn value_to_literal(v: &Value) -> String {
+    match v {
+        Value::Integer(iv) => format!("{}i64", iv.value),
+        Value::Float(fv) => {
+            let s = format!("{}", fv.value);
+            if s.contains('e') || s.contains('E') {
+                s
+            } else {
+                format!("{s}.0")
+            }
+        }
+        Value::String(sv) => {
+            let escaped = sv
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n")
+                .replace('\t', "\\t")
+                .replace('\r', "\\r");
+            format!("\"{escaped}\"")
+        }
+    }
+}
+
+// ── Condition code for when clauses ──────────────────────────────────────────
+
+/// Convert a FullExpression to Rust code suitable as a condition (truthy check).
+/// Returns the raw expression code — truthiness is implicit in Rust.
+pub fn condition_to_rust(
+    expr: &FullExpression,
+    persistent_fields: &[String],
+) -> Result<String, CompileError> {
+    expr_to_rust(&expr.expression, persistent_fields)
+}
