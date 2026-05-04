@@ -5,11 +5,13 @@ use handlebars::Handlebars;
 
 use crate::machine::StateMachine;
 use super::super::{Backend, FileSet};
+use super::super::codegen;
 use super::super::error::CompileError;
 
 const MOD_TEMPLATE: &str = include_str!("templates/mod.hbs");
 const TYPES_TEMPLATE: &str = include_str!("templates/types.hbs");
 const TICK_TEMPLATE: &str = include_str!("templates/tick.hbs");
+const GROUP_TEMPLATE: &str = include_str!("templates/group.hbs");
 
 /// Rust backend: compiles state machines into Rust code using Handlebars templates.
 pub struct RustBackend {
@@ -25,6 +27,8 @@ impl RustBackend {
             .expect("failed to register types template");
         hb.register_template_string("tick", TICK_TEMPLATE.to_string())
             .expect("failed to register tick template");
+        hb.register_template_string("group", GROUP_TEMPLATE.to_string())
+            .expect("failed to register group template");
         Self { handlebars: hb }
     }
 
@@ -44,9 +48,34 @@ impl Default for RustBackend {
 impl Backend for RustBackend {
     fn compile(
         &self,
-        _machines: &[StateMachine],
+        machines: &[StateMachine],
     ) -> Result<FileSet, Vec<CompileError>> {
-        // Placeholder: code generation will be implemented in Phase 4 steps
-        Ok(HashMap::new())
+        let mut files = HashMap::new();
+
+        // ── Per-machine types files ────────────────────────────────────────
+        for machine in machines {
+            let data = codegen::build_types_data(machine);
+            let content = self.render("types", &data);
+            files.insert(format!("{}\\types.rs", machine.id), content);
+        }
+
+        // ── Per-machine tick files ─────────────────────────────────────────
+        for machine in machines {
+            let data = codegen::build_tick_data(machine)?;
+            let content = self.render("tick", &data);
+            files.insert(format!("{}\\tick.rs", machine.id), content);
+        }
+
+        // ── Group file ─────────────────────────────────────────────────────
+        let group_data = codegen::build_group_data(machines);
+        let group_content = self.render("group", &group_data);
+        files.insert("group.rs".to_string(), group_content);
+
+        // ── Module file ────────────────────────────────────────────────────
+        let mod_data = codegen::build_mod_data(machines);
+        let mod_content = self.render("mod", &mod_data);
+        files.insert("mod.rs".to_string(), mod_content);
+
+        Ok(files)
     }
 }

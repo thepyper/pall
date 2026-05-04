@@ -1,0 +1,69 @@
+// Group types and tick for multi-machine compilation
+// Auto-generated. Do not edit.
+
+use serde::{Serialize, Deserialize};
+
+{{#each machine_fields}}
+use {{{id}}}_types::{Persistent, Update};
+{{/each}}
+{{#each machine_ticks}}
+use {{{id}}}_tick::tick;
+{{/each}}
+use super::TickInfo;
+use super::error::TickError;
+
+// ── GroupPersistent ────────────────────────────────────────────────────────
+/// Holds persistent state for all compiled machines.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GroupPersistent {
+{{#each machine_fields}}
+    pub {{{id}}}: Persistent,
+{{/each}}
+}
+
+// ── GroupUpdate ────────────────────────────────────────────────────────────
+/// Holds updates from all machines after one tick.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GroupUpdate {
+{{#each machine_ticks}}
+    pub {{{id}}}: Update,
+{{/each}}
+}
+
+// ── Group Tick Function ────────────────────────────────────────────────────
+/// Execute one tick across all machines.
+/// Phase 1: propagate links. Phase 2: tick each machine.
+pub fn group_tick(
+    group: &GroupPersistent,
+    tick_info: &TickInfo,
+) -> Result<GroupUpdate, TickError> {
+    let mut update = GroupUpdate {
+{{#each machine_ticks}}
+        {{{id}}}: Update::default(),
+{{/each}}
+    };
+
+    {{!-- Phase 1: Link propagation --}}
+{{#if link_assignments}}
+{{#each link_assignments}}
+    {
+        let val = &group.{{{source_machine}}}.{{{source_var}}};
+        let mut g = &group.{{{target_machine}}};
+        let mut u = &mut update.{{{target_machine}}};
+        u.{{{target_var}}} = Some(val.clone());
+    }
+
+{{/each}}
+{{/if}}
+
+    {{!-- Phase 2: Per-machine ticks --}}
+{{#each machine_ticks}}
+    {
+        let state = &group.{{{id}}};
+        let result = tick(state, tick_info)?;
+        update.{{{id}}} = result;
+    }
+
+{{/each}}
+    Ok(update)
+}

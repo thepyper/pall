@@ -1,10 +1,273 @@
+use std::collections::HashMap;
+
 use crate::machine::{
     Action, BinaryOperator, Constant, Expression, FullExpression, FullStatement,
     Input, Signal, Statement, Timer, UnaryOperator, Value,
 };
 
 use super::error::CompileError;
-use super::error::CompileErrorKind;
+
+/// Build a JSON data context for a single machine's types template.
+pub fn build_types_data(machine: &crate::machine::StateMachine) -> serde_json::Value {
+    let mut inputs = vec![];
+    for (name, input) in &machine.inputs {
+        let ident = safe_ident(name);
+        inputs.push(serde_json::json!({
+            "name": ident,
+            "rust_type": type_to_rust(&input.r#type),
+            "output": input.output,
+        }));
+    }
+
+    let mut variables = vec![];
+    for (name, var) in &machine.variables {
+        let ident = safe_ident(name);
+        let default = if let Some(ref init) = var.initial {
+            value_to_literal(init)
+        } else {
+            default_value_for_type(&var.r#type)
+        };
+        variables.push(serde_json::json!({
+            "name": ident,
+            "rust_type": type_to_rust(&var.r#type),
+            "default_value": default,
+            "output": var.output,
+        }));
+    }
+
+    let mut signals = vec![];
+    for (name, sig) in &machine.signals {
+        let ident = safe_ident(name);
+        signals.push(serde_json::json!({
+            "name": ident,
+            "rust_type": type_to_rust(&sig.r#type),
+            "output": sig.output,
+        }));
+    }
+
+    let mut timers = vec![];
+    for (name, timer) in &machine.timers {
+        let ident = safe_ident(name);
+        timers.push(serde_json::json!({
+            "name": ident,
+            "rust_type": type_to_rust(&timer.r#type),
+        }));
+    }
+
+    let mut constants = vec![];
+    for (name, constant) in &machine.constants {
+        let ident = safe_ident(name);
+        constants.push(serde_json::json!({
+            "name": ident,
+            "rust_type": type_to_rust(&constant.r#type),
+            "value": value_to_literal(&constant.value),
+            "output": constant.output,
+        }));
+    }
+
+    serde_json::json!({
+        "machine_id": machine.id,
+        "initial": machine.initial.clone().unwrap_or_else(|| "initial".to_string()),
+        "inputs": inputs,
+        "variables": variables,
+        "signals": signals,
+        "timers": timers,
+        "constants": constants,
+    })
+}
+
+/// Build a JSON data context for a single machine's tick template.
+pub fn build_tick_data(
+    machine: &crate::machine::StateMachine,
+) -> Result<serde_json::Value, Vec<CompileError>> {
+    let mut errors = Vec::new();
+
+    let initial = machine.initial.clone().unwrap_or_else(|| "initial".to_string());
+
+    // Build field identifiers for expr_to_rust
+    let mut field_list: Vec<String> = Vec::new();
+    for (name, _) in &machine.inputs {
+        field_list.push(safe_ident(name));
+    }
+    for (name, _) in &machine.variables {
+        field_list.push(safe_ident(name));
+    }
+    for (name, _) in &machine.signals {
+        field_list.push(safe_ident(name));
+    }
+    for (name, _) in &machine.timers {
+        field_list.push(safe_ident(name));
+    }
+    for (name, _) in &machine.constants {
+        field_list.push(safe_ident(name));
+    }
+
+    let mut states = vec![];
+    for (state_name, state) in &machine.states {
+        let mut actions_json = vec![];
+        for action in &state.actions {
+            let when_code = match &action.when {
+                Some(expr) => match condition_to_rust(expr, &field_list) {
+                    Ok(code) => code,
+                    Err(e) => {
+                        errors.push(e);
+                        "false".to_string()
+                    }
+                },
+                None => String::new(),
+            };
+
+            let mut stmts = vec![];
+            for stmt in &action.r#do {
+                match stmt_to_rust(stmt, &field_list) {
+                    Ok(code) => stmts.push(code),
+                    Err(e) => errors.push(e),
+                }
+            }
+
+            actions_json.push(serde_json::json!({
+                "when_rust_code": when_code,
+                "statements": stmts,
+            }));
+        }
+
+        let mut transitions_json = vec![];
+        for trans in &state.transitions {
+            let when_code = match &trans.when {
+                Some(expr) => match condition_to_rust(expr, &field_list) {
+                    Ok(code) => code,
+                    Err(e) => {
+                        errors.push(e);
+                        "false".to_string()
+                    }
+                },
+                None => String::new(),
+            };
+
+            let mut stmts = vec![];
+            for stmt in &trans.r#do {
+                match stmt_to_rust(stmt, &field_list) {
+                    Ok(code) => stmts.push(code),
+                    Err(e) => errors.push(e),
+                }
+            }
+
+            transitions_json.push(serde_json::json!({
+                "when_rust_code": when_code,
+                "statements": stmts,
+                "target": trans.target,
+            }));
+        }
+
+        states.push(serde_json::json!({
+            "name": state_name,
+            "actions": actions_json,
+            "transitions": transitions_json,
+        }));
+    }
+
+    let mut signals_json = vec![];
+    for (name, sig) in &machine.signals {
+        let expr_code = match expr_to_rust(&sig.expr, &field_list) {
+            Ok(code) => code,
+            Err(e) => {
+                errors.push(e);
+                "0".to_string()
+            }
+        };
+        signals_json.push(serde_json::json!({
+            "name": safe_ident(name),
+            "rust_type": type_to_rust(&sig.r#type),
+            "expr_rust_code": expr_code,
+        }));
+    }
+
+    let mut timers_json = vec![];
+    for (name, timer) in &machine.timers {
+        let when_code = match &timer.when {
+            Some(expr) => match expr_to_rust(expr, &field_list) {
+                Ok(code) => code,
+                Err(e) => {
+                    errors.push(e);
+                    "false".to_string()
+                }
+            },
+            None => String::new(),
+        };
+        timers_json.push(serde_json::json!({
+            "name": safe_ident(name),
+            "rust_type": type_to_rust(&timer.r#type),
+            "when_rust_code": when_code,
+        }));
+    }
+
+    let mut constants_json = vec![];
+    for (name, constant) in &machine.constants {
+        constants_json.push(serde_json::json!({
+            "name": safe_ident(name),
+            "rust_type": type_to_rust(&constant.r#type),
+            "value": format!("{}", safe_ident(name)),
+        }));
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(serde_json::json!({
+        "machine_id": machine.id,
+        "initial": initial,
+        "states": states,
+        "signals": signals_json,
+        "timers": timers_json,
+        "constants": constants_json,
+    }))
+}
+
+/// Build a JSON data context for the mod.rs template.
+pub fn build_mod_data(machines: &[crate::machine::StateMachine]) -> serde_json::Value {
+    let machines_json: Vec<serde_json::Value> = machines
+        .iter()
+        .map(|m| serde_json::json!({ "id": m.id }))
+        .collect();
+    serde_json::json!({ "machines": machines_json })
+}
+
+/// Build a JSON data context for the group.rs template.
+pub fn build_group_data(machines: &[crate::machine::StateMachine]) -> serde_json::Value {
+    let mut machine_fields = vec![];
+    let mut machine_ticks = vec![];
+    let mut link_assignments = vec![];
+
+    for machine in machines {
+        machine_fields.push(serde_json::json!({
+            "id": machine.id,
+            "types_ref": format!("{}", machine.id),
+        }));
+        machine_ticks.push(serde_json::json!({
+            "id": machine.id,
+            "types_ref": format!("{}", machine.id),
+        }));
+
+        // Generate link propagation code
+        for (input_name, input) in &machine.inputs {
+            if let Some(link) = &input.link {
+                link_assignments.push(serde_json::json!({
+                    "source_machine": link.id,
+                    "source_var": link.output,
+                    "target_machine": &machine.id,
+                    "target_var": safe_ident(input_name),
+                }));
+            }
+        }
+    }
+
+    serde_json::json!({
+        "machine_fields": machine_fields,
+        "machine_ticks": machine_ticks,
+        "link_assignments": link_assignments,
+    })
+}
 
 // ── Type mapping: Type → Rust type string ───────────────────────────────────
 
@@ -112,6 +375,7 @@ fn value_to_rust(v: &Value) -> String {
         Value::String(sv) => {
             // Escape special characters for Rust string literal
             let escaped = sv
+                .value
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"")
                 .replace('\n', "\\n")
@@ -209,6 +473,7 @@ pub fn value_to_literal(v: &Value) -> String {
         }
         Value::String(sv) => {
             let escaped = sv
+                .value
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"")
                 .replace('\n', "\\n")
