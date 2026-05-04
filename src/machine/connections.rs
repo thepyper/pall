@@ -6,6 +6,8 @@ use super::types::Type;
 pub struct Input {
     pub r#type: Type,
     pub link: Option<Link>,
+    #[serde(default)]
+    pub output: bool,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
