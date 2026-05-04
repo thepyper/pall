@@ -21,6 +21,27 @@ pub fn validate_machines(machines: &[StateMachine]) -> Result<(), Vec<CompileErr
         }
     }
 
+    // Step 2.3: Unreachable transition detection
+    for machine in machines {
+        for (state_name, state) in &machine.states {
+            let mut seen_always_true = false;
+            for (index, transition) in state.transitions.iter().enumerate() {
+                if seen_always_true {
+                    errors.push(CompileError::new(
+                        CompileErrorKind::UnreachableTransition,
+                        format!(
+                            "unreachable transition in machine '{}', state '{}', transition {}",
+                            machine.id, state_name, index
+                        ),
+                    ));
+                }
+                if transition.when.is_none() {
+                    seen_always_true = true;
+                }
+            }
+        }
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
