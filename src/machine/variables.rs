@@ -32,5 +32,7 @@ pub struct Variable
 pub struct Constant
 {
     pub r#type: Type,
+    #[serde(default)]
+    pub output: bool,
     pub value: Value,
 }
