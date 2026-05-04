@@ -195,3 +195,85 @@ fn check_output_var_exists(machine: &StateMachine, var_name: &str) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::{
+        FullExpression, FullStatement, IntegerFmt, IntegerValue, State, Transition,
+        Type, Variable,
+    };
+    use std::collections::HashMap;
+
+    fn make_machine(id: &str, var_name: &str) -> StateMachine {
+        let mut states = HashMap::new();
+        states.insert(
+            "initial".to_string(),
+            State {
+                actions: vec![],
+                transitions: vec![],
+            },
+        );
+        StateMachine {
+            id: id.to_string(),
+            initial: Some("initial".to_string()),
+            states,
+            inputs: HashMap::new(),
+            signals: HashMap::new(),
+            timers: HashMap::new(),
+            variables: [(var_name.to_string(), Variable {
+                r#type: Type::U32,
+                initial: None,
+                output: false,
+            })]
+            .into_iter()
+            .collect(),
+            constants: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_valid_machines_pass() {
+        let m = make_machine("m1", "counter");
+        assert!(validate_machines(&[m]).is_ok());
+    }
+
+    #[test]
+    fn test_duplicate_id_fails() {
+        let m1 = make_machine("dup", "x");
+        let m2 = make_machine("dup", "y");
+        let result = validate_machines(&[m1, m2]);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.kind == CompileErrorKind::DuplicateMachineId));
+    }
+
+    #[test]
+    fn test_unreachable_transition_detected() {
+        let mut m = make_machine("m1", "counter");
+        let mut initial = m.states.get_mut("initial").unwrap();
+        initial.transitions.push(Transition {
+            when: None, // always-true
+            r#do: vec![],
+            target: "initial".to_string(),
+        });
+        initial.transitions.push(Transition {
+            when: Some(FullExpression::parse("counter > 5").unwrap()),
+            r#do: vec![],
+            target: "initial".to_string(),
+        });
+        assert!(validate_machines(&[m]).is_err());
+    }
+
+    #[test]
+    fn test_missing_state_reference_detected() {
+        let mut m = make_machine("m1", "counter");
+        let mut initial = m.states.get_mut("initial").unwrap();
+        initial.transitions.push(Transition {
+            when: Some(FullExpression::parse("counter > 5").unwrap()),
+            r#do: vec![],
+            target: "nonexistent".to_string(),
+        });
+        assert!(validate_machines(&[m]).is_err());
+    }
+}
