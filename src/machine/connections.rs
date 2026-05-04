@@ -10,7 +10,4 @@ pub struct Input {
     pub output: bool,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct Output {
-    pub r#type: Type,
-}
+

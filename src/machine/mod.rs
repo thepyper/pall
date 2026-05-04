@@ -10,7 +10,7 @@ pub mod parser;
 
 pub use types::{Type, Value, IntegerValue, FloatValue, StringValue, IntegerFmt, FloatFmt, StringFmt};
 pub use link::Link;
-pub use connections::{Input, Output};
+pub use connections::Input;
 pub use variables::{Signal, Timer, Variable, Constant};
 pub use expression::{Reference, Expression, BinaryOperator, UnaryOperator, FullExpression};
 pub use statement::{Statement, AssignmentOperator, FullStatement};
@@ -27,8 +27,7 @@ pub struct StateMachine
     pub states: HashMap<String, State>,
     #[serde(default)]
     pub inputs: HashMap<String, Input>,
-    #[serde(default)]
-    pub outputs: HashMap<String, Output>,
+
     #[serde(default)]
     pub signals: HashMap<String, Signal>,
     #[serde(default)]
