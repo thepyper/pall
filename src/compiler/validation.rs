@@ -42,6 +42,23 @@ pub fn validate_machines(machines: &[StateMachine]) -> Result<(), Vec<CompileErr
         }
     }
 
+    // Step 2.4: Missing state reference validation
+    for machine in machines {
+        for (state_name, state) in &machine.states {
+            for (index, transition) in state.transitions.iter().enumerate() {
+                if !machine.states.contains_key(&transition.target) {
+                    errors.push(CompileError::new(
+                        CompileErrorKind::MissingStateReference,
+                        format!(
+                            "missing state reference in machine '{}', state '{}', transition {}: target '{}' does not exist",
+                            machine.id, state_name, index, transition.target
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
