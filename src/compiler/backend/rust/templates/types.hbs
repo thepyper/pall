@@ -1,0 +1,51 @@
+// Types for machine: {{{machine_id}}}
+// Auto-generated. Do not edit.
+
+use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+
+{{#if constants}}
+// ── Constants ────────────────────────────────────────────────────────────────
+{{#each constants}}
+pub const {{name}}: {{rust_type}} = {{value}};
+{{/each}}
+{{/if}}
+
+// ── Persistent ───────────────────────────────────────────────────────────────
+/// Holds all persistent state for machine: {{{machine_id}}}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Persistent {
+    /// Current state name
+    pub state: String,
+    {{#each inputs}}
+    pub {{{name}}}: {{rust_type}},
+    {{/each}}
+    {{#each variables}}
+    pub {{{name}}}: {{rust_type}},
+    {{/each}}
+    {{#each signals}}
+    pub {{{name}}}: {{rust_type}},
+    {{/each}}
+    {{#each timers}}
+    pub {{{name}}}: {{rust_type}},
+    {{/each}}
+    {{#each constants}}
+    pub {{{name}}}: {{rust_type}},
+    {{/each}}
+}
+
+// ── Update ───────────────────────────────────────────────────────────────────
+/// Holds changes produced during one tick for machine: {{{machine_id}}}
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct Update {
+    {{#each variables}}
+    pub {{{name}}}: Option<{{rust_type}}>,
+    {{/each}}
+    {{#each signals}}
+    pub {{{name}}}: Option<{{rust_type}}>,
+    {{/each}}
+    {{#each timers}}
+    pub {{{name}}}: Option<{{rust_type}}>,
+    {{/each}}
+    pub state: Option<String>,
+}

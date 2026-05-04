@@ -1,0 +1,13 @@
+// Generated module. Do not edit.
+
+{{#each machines}}
+pub mod {{{id}}}_types;
+pub mod {{{id}}}_tick;
+{{/each}}
+pub mod group;
+
+{{#each machines}}
+pub use {{{id}}}_types::{Persistent, Update};
+pub use {{{id}}}_tick::{tick, init};
+{{/each}}
+pub use group::{GroupPersistent, GroupUpdate, group_tick};
