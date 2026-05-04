@@ -7,3 +7,7 @@ pub use error::{CompileError, CompileErrorKind, TickError, TickErrorKind};
 pub use backend::Backend;
 
 pub type FileSet = std::collections::HashMap<String, String>;
+
+pub struct TickInfo {
+    pub delta_ms: u64,
+}

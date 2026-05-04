@@ -1,0 +1,23 @@
+---
+
+**Implemented Step 1.1: Create compiler module skeleton.**
+
+**Created files:**
+| File | Content |
+|------|---------|
+| `src/compiler/mod.rs` | Module declarations for `error`, `validation`, `backend`, `codegen`; re-exports `CompileError`, `CompileErrorKind`, `TickError`, `TickErrorKind`, `Backend`; `FileSet` type alias |
+| `src/compiler/error.rs` | Stub definitions for `CompileError` (with `message`, `line`, `column`, `kind`), `CompileErrorKind` (6 variants), `TickError`, `TickErrorKind`; implements `Display`, `Error` traits |
+| `src/compiler/backend/mod.rs` | Module with `pub mod rust;`, `Backend` trait with `compile(&self, machines: &[StateMachine]) -> Result<FileSet, CompileError>` |
+| `src/compiler/backend/rust/mod.rs` | Empty stub for Phase 4 |
+| `src/compiler/validation.rs` | Empty stub for Phase 2 |
+| `src/compiler/codegen.rs` | Empty stub for Phase 4 |
+| `src/main.rs` | Added `mod compiler;` |
+
+**Validation:** `cargo build` succeeds (compile OK, only expected warnings about unused code from stubs).
+
+**Commit:** `Step 1.1: Create compiler module skeleton` (hash `70d92aa`).
+
+**Open risks/questions:**
+- `error.rs` has full type definitions (not just stubs) so the re-exports in `mod.rs` resolve. These will be refined in Steps 1.2–1.5.
+- `backend/mod.rs` imports `StateMachine` from `crate::machine` — this creates the cross-dependency that the Backend trait needs.
+- `rust` sub-module is empty — will be populated in Phase 4.
