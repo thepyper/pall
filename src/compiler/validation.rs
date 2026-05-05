@@ -160,6 +160,28 @@ pub fn validate_machines(machines: &[StateMachine]) -> Result<(), Vec<CompileErr
         }
     }
 
+    // Step 2.8: Reserved variable name validation ("state" is reserved)
+    for machine in machines {
+        if machine.variables.contains_key("state") {
+            errors.push(CompileError::new(
+                CompileErrorKind::ReservedVariableName,
+                format!(
+                    "machine '{}': 'state' is a reserved variable name and cannot be used as a variable",
+                    machine.id
+                ),
+            ));
+        }
+        if machine.states.contains_key("state") {
+            errors.push(CompileError::new(
+                CompileErrorKind::ReservedVariableName,
+                format!(
+                    "machine '{}': 'state' is a reserved state name and cannot be used",
+                    machine.id
+                ),
+            ));
+        }
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -275,5 +297,61 @@ mod tests {
             target: "nonexistent".to_string(),
         });
         assert!(validate_machines(&[m]).is_err());
+    }
+
+    #[test]
+    fn test_reserved_state_variable_detected() {
+        let mut states = HashMap::new();
+        states.insert(
+            "initial".to_string(),
+            State {
+                actions: vec![],
+                transitions: vec![],
+            },
+        );
+        let m = StateMachine {
+            id: "m1".to_string(),
+            initial: Some("initial".to_string()),
+            states,
+            inputs: HashMap::new(),
+            signals: HashMap::new(),
+            timers: HashMap::new(),
+            variables: [("state".to_string(), Variable {
+                r#type: Type::U32,
+                initial: None,
+                output: false,
+            })].into_iter().collect(),
+            constants: HashMap::new(),
+        };
+        let result = validate_machines(&[m]);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.kind == CompileErrorKind::ReservedVariableName));
+    }
+
+    #[test]
+    fn test_reserved_state_name_detected() {
+        let mut states = HashMap::new();
+        states.insert(
+            "state".to_string(),
+            State {
+                actions: vec![],
+                transitions: vec![],
+            },
+        );
+        let m = StateMachine {
+            id: "m1".to_string(),
+            initial: Some("state".to_string()),
+            states,
+            inputs: HashMap::new(),
+            signals: HashMap::new(),
+            timers: HashMap::new(),
+            variables: HashMap::new(),
+            constants: HashMap::new(),
+        };
+        let result = validate_machines(&[m]);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.kind == CompileErrorKind::ReservedVariableName));
     }
 }

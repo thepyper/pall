@@ -11,6 +11,7 @@ pub enum CompileErrorKind {
     InvalidLink,
     InvalidTimerType,
     InvalidSignalExpr,
+    ReservedVariableName,
 }
 
 impl fmt::Display for CompileErrorKind {
@@ -22,6 +23,7 @@ impl fmt::Display for CompileErrorKind {
             CompileErrorKind::InvalidLink => write!(f, "invalid link"),
             CompileErrorKind::InvalidTimerType => write!(f, "invalid timer type"),
             CompileErrorKind::InvalidSignalExpr => write!(f, "invalid signal expression"),
+            CompileErrorKind::ReservedVariableName => write!(f, "reserved variable name"),
         }
     }
 }

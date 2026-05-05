@@ -1,19 +1,18 @@
 // Tick implementation for machine: {{{machine_id}}}
 // Auto-generated. Do not edit.
 
-use super::types::{Persistent, Update};
+use super::types::{Persistent, Update, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
-use super::super::error::TickErrorKind;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
 /// Execute one tick of machine: {{{machine_id}}}
 pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
     let mut update = Update::default();
 
-    match state.state.as_str() {
+    match state.state {
 {{#each states}}
-        "{{name}}" => {
+        State::{{{variant}}} => {
             {{!-- Execute Actions --}}
             {{#each actions}}
             {{#if when_rust_code}}
@@ -35,7 +34,7 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
             {{#each statements}}
                 {{{this}}}
             {{/each}}
-            update.state = Some("{{target}}".to_string());
+            update.state = Some(State::{{{target_variant}}});
             return Ok(update);
             {{#if when_rust_code}}
             }
@@ -45,12 +44,6 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
         }
 
 {{/each}}
-        _ => {
-            return Err(TickError {
-                message: format!("unknown state: {}", state.state),
-                kind: TickErrorKind::UnknownState,
-            });
-        }
     }
 
     {{!-- Calculate Signals (after state/transition logic) --}}
@@ -83,7 +76,8 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
 /// Create initial Persistent state for machine: {{{machine_id}}}
 pub fn init() -> Persistent {
     Persistent {
-        state: "{{initial}}".to_string(),
+        state: State::{{{initial_variant}}},
+        state_name: "{{initial}}".to_string(),
 {{#each inputs}}
         {{{name}}}: default(),
 {{/each}}

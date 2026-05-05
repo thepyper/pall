@@ -65,9 +65,20 @@ pub fn build_types_data(machine: &crate::machine::StateMachine) -> serde_json::V
         }));
     }
 
+    let mut states_json = vec![];
+    for (state_name, _) in &machine.states {
+        let variant_name = to_pascal_case(state_name);
+        states_json.push(serde_json::json!({
+            "name": variant_name,
+            "raw_name": state_name,
+        }));
+    }
+
     serde_json::json!({
         "machine_id": machine.id,
         "initial": machine.initial.clone().unwrap_or_else(|| "initial".to_string()),
+        "initial_variant": to_pascal_case(&machine.initial.clone().unwrap_or_else(|| "initial".to_string())),
+        "states": states_json,
         "inputs": inputs,
         "variables": variables,
         "signals": signals,
@@ -156,11 +167,13 @@ pub fn build_tick_data(
                 "when_rust_code": when_code,
                 "statements": stmts,
                 "target": trans.target,
+                "target_variant": to_pascal_case(&trans.target),
             }));
         }
 
         states.push(serde_json::json!({
             "name": state_name,
+            "variant": to_pascal_case(state_name),
             "actions": actions_json,
             "transitions": transitions_json,
         }));
@@ -214,10 +227,21 @@ pub fn build_tick_data(
         return Err(errors);
     }
 
+    let state_variants: Vec<serde_json::Value> = machine
+        .states
+        .keys()
+        .map(|name| serde_json::json!({
+            "variant": to_pascal_case(name),
+            "raw_name": name,
+        }))
+        .collect();
+
     Ok(serde_json::json!({
         "machine_id": machine.id,
         "initial": initial,
+        "initial_variant": to_pascal_case(&initial),
         "states": states,
+        "state_variants": state_variants,
         "signals": signals_json,
         "timers": timers_json,
         "constants": constants_json,
@@ -267,6 +291,31 @@ pub fn build_group_data(machines: &[crate::machine::StateMachine]) -> serde_json
         "machine_ticks": machine_ticks,
         "link_assignments": link_assignments,
     })
+}
+
+// ── PascalCase conversion ─────────────────────────────────────────────────
+
+fn to_pascal_case(input: &str) -> String {
+    if input.is_empty() {
+        return String::new();
+    }
+    let mut result = String::with_capacity(input.len());
+    let mut capitalize_next = true;
+    for ch in input.chars() {
+        if ch == '_' {
+            capitalize_next = true;
+            continue;
+        }
+        if capitalize_next {
+            for uc in ch.to_uppercase() {
+                result.push(uc);
+            }
+            capitalize_next = false;
+        } else {
+            result.push(ch);
+        }
+    }
+    result
 }
 
 // ── Type mapping: Type → Rust type string ───────────────────────────────────
