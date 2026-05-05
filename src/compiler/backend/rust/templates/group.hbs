@@ -34,10 +34,10 @@ pub struct GroupUpdate {
 /// Execute one tick across all machines.
 /// Phase 1: propagate links. Phase 2: tick each machine.
 pub fn group_tick(
-    group: &GroupPersistent,
+    {{{state_group_var}}}: &GroupPersistent,
     tick_info: &TickInfo,
 ) -> Result<GroupUpdate, TickError> {
-    let mut update = GroupUpdate {
+    let mut {{{update_group_var}}} = GroupUpdate {
 {{#each machine_ticks}}
         {{{id}}}: Update::default(),
 {{/each}}
@@ -47,9 +47,9 @@ pub fn group_tick(
 {{#if link_assignments}}
 {{#each link_assignments}}
     {
-        let val = &group.{{{source_machine}}}.{{{source_var}}};
-        let mut g = &group.{{{target_machine}}};
-        let mut u = &mut update.{{{target_machine}}};
+        let val = &{{{state_group_var}}}.{{{source_machine}}}.{{{source_var}}};
+        let mut g = &{{{state_group_var}}}.{{{target_machine}}};
+        let mut u = &mut {{{update_group_var}}}.{{{target_machine}}};
         u.{{{target_var}}} = Some(val.clone());
     }
 
@@ -59,11 +59,11 @@ pub fn group_tick(
     {{!-- Phase 2: Per-machine ticks --}}
 {{#each machine_ticks}}
     {
-        let state = &group.{{{id}}};
-        let result = tick(state, tick_info)?;
-        update.{{{id}}} = result;
+        let {{{state_var}}} = &{{{state_group_var}}}.{{{id}}};
+        let result = tick({{{state_var}}}, tick_info)?;
+        {{{update_group_var}}}.{{{id}}} = result;
     }
 
 {{/each}}
-    Ok(update)
+    Ok({{{update_group_var}}})
 }

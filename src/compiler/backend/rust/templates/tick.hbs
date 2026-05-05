@@ -7,10 +7,10 @@ use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
 /// Execute one tick of machine: {{{machine_id}}}
-pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
-    let mut update = Update::default();
+pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
+    let mut {{{update_var}}} = Update::default();
 
-    match state.state {
+    match {{{state_var}}}.state {
 {{#each states}}
         State::{{{variant}}} => {
             {{!-- Execute Actions --}}
@@ -34,8 +34,8 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
             {{#each statements}}
                 {{{this}}}
             {{/each}}
-            update.state = Some(State::{{{target_variant}}});
-            return Ok(update);
+            {{{update_var}}}.state = Some(State::{{{target_variant}}});
+            return Ok({{{update_var}}});
             {{#if when_rust_code}}
             }
             {{/if}}
@@ -50,7 +50,7 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
     {{#each signals}}
     {
         let val: {{{rust_type}}} = {{{expr_rust_code}}};
-        update.{{{name}}} = Some(val);
+        {{{update_var}}}.{{{name}}} = Some(val);
     }
     {{/each}}
 
@@ -59,21 +59,21 @@ pub fn tick(state: &Persistent, tick_info: &TickInfo) -> Result<Update, TickErro
     {
         {{#if when_rust_code}}
         if {{{when_rust_code}}} {
-            update.{{{name}}} = Some(state.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
+            {{{update_var}}}.{{{name}}} = Some({{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
         } else {
-            update.{{{name}}} = Some(0 as {{{rust_type}}});
+            {{{update_var}}}.{{{name}}} = Some(0 as {{{rust_type}}});
         }
         {{else}}
-        update.{{{name}}} = Some(state.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
+        {{{update_var}}}.{{{name}}} = Some({{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
         {{/if}}
     }
     {{/each}}
 
-    Ok(update)
+    Ok({{{update_var}}})
 }
 
 // ── Init Function ────────────────────────────────────────────────────────────
-/// Create initial Persistent state for machine: {{{machine_id}}}
+/// Create initial {{{state_var}}} state for machine: {{{machine_id}}}
 pub fn init() -> Persistent {
     Persistent {
         state: State::{{{initial_variant}}},
