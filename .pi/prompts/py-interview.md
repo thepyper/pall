@@ -1,5 +1,5 @@
 ---
-description: Interview to define plan scope
+description: Interview to define a plan 
 argument-hint: "<plan-name>"
 ---
 ## Procedure
