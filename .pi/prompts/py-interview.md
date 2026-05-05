@@ -30,9 +30,16 @@ Then, create a detailed plan out of this interview, with care to create MICRO st
 Write the plan in:
 .py/plans/$1/PLAN.md 
 
+# Review
+
+Then, review the plan, looking for errors, problems, missing parts, inconsistencies, discrepancies with the interview, missing points from the interview.
+If the plan does not feel good enough to be executed, explain to the user the problems and ask if ho prefers to solve the problems or continue as-is.
+If the user wants to solve the problems, return to the interview phase, then integrate INTERVIEW.md, then reformulate PLAN.md, then review again.
+
 ## Completion criteria
 
 [ ] INTERVIEW.md has been written with full information captured by the whole Q&A session
 [ ] PLAN.md has been written with a complete, detailed, micro-stepped (single concern per-step) plan ready to be executed to obtain the objective 
+[ ] Plan review has been done with positive outcome
 
 IMPORTANT: DO NOT STOP UNTIL ALL COMPLETION CRITERIA HAS BEEN MET!!
