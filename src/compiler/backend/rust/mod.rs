@@ -80,7 +80,8 @@ impl Backend for RustBackend {
 
         // ── Group file ─────────────────────────────────────────────────────
         let group_ctx = CodegenContext::new(Self::STATE_GROUP_NAME, Self::UPDATE_GROUP_NAME);
-        let group_data = codegen::build_group_data(machines, &group_ctx);
+        let tick_ctx = CodegenContext::new(Self::STATE_NAME, Self::UPDATE_NAME);
+        let group_data = codegen::build_group_data(machines, &group_ctx, &tick_ctx);
         let group_content = self.render("group", &group_data);
         files.insert("group.rs".to_string(), group_content);
 

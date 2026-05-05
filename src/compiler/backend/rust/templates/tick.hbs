@@ -34,8 +34,8 @@ pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Update
             {{#each statements}}
                 {{{this}}}
             {{/each}}
-            {{{update_var}}}.state = Some(State::{{{target_variant}}});
-            return Ok({{{update_var}}});
+            {{../../update_var}}.state = Some(State::{{{target_variant}}});
+            return Ok({{../../update_var}});
             {{#if when_rust_code}}
             }
             {{/if}}
@@ -50,7 +50,7 @@ pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Update
     {{#each signals}}
     {
         let val: {{{rust_type}}} = {{{expr_rust_code}}};
-        {{{update_var}}}.{{{name}}} = Some(val);
+        {{../update_var}}.{{{name}}} = Some(val);
     }
     {{/each}}
 
@@ -59,12 +59,12 @@ pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Update
     {
         {{#if when_rust_code}}
         if {{{when_rust_code}}} {
-            {{{update_var}}}.{{{name}}} = Some({{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
+            {{../update_var}}.{{{name}}} = Some({{../state_var}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
         } else {
-            {{{update_var}}}.{{{name}}} = Some(0 as {{{rust_type}}});
+            {{../update_var}}.{{{name}}} = Some(0 as {{{rust_type}}});
         }
         {{else}}
-        {{{update_var}}}.{{{name}}} = Some({{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
+        {{../update_var}}.{{{name}}} = Some({{../state_var}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
         {{/if}}
     }
     {{/each}}

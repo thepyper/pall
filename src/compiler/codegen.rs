@@ -287,7 +287,8 @@ pub fn build_mod_data(machines: &[crate::machine::StateMachine]) -> serde_json::
 /// Build a JSON data context for the group.rs template.
 pub fn build_group_data(
     machines: &[crate::machine::StateMachine],
-    context: &CodegenContext,
+    group_ctx: &CodegenContext,
+    tick_ctx: &CodegenContext,
 ) -> serde_json::Value {
     let mut machine_fields = vec![];
     let mut machine_ticks = vec![];
@@ -320,8 +321,9 @@ pub fn build_group_data(
         "machine_fields": machine_fields,
         "machine_ticks": machine_ticks,
         "link_assignments": link_assignments,
-        "state_group_var": context.state_var.clone(),
-        "update_group_var": context.update_var.clone(),
+        "state_group_var": group_ctx.state_var.clone(),
+        "update_group_var": group_ctx.update_var.clone(),
+        "tick_state_var": tick_ctx.state_var.clone(),
     })
 }
 

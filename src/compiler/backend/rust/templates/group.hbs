@@ -47,9 +47,9 @@ pub fn group_tick(
 {{#if link_assignments}}
 {{#each link_assignments}}
     {
-        let val = &{{{state_group_var}}}.{{{source_machine}}}.{{{source_var}}};
-        let mut g = &{{{state_group_var}}}.{{{target_machine}}};
-        let mut u = &mut {{{update_group_var}}}.{{{target_machine}}};
+        let val = &{{../state_group_var}}.{{{source_machine}}}.{{{source_var}}};
+        let mut g = &{{../state_group_var}}.{{{target_machine}}};
+        let mut u = &mut {{../update_group_var}}.{{{target_machine}}};
         u.{{{target_var}}} = Some(val.clone());
     }
 
@@ -59,9 +59,9 @@ pub fn group_tick(
     {{!-- Phase 2: Per-machine ticks --}}
 {{#each machine_ticks}}
     {
-        let {{{state_var}}} = &{{{state_group_var}}}.{{{id}}};
-        let result = tick({{{state_var}}}, tick_info)?;
-        {{{update_group_var}}}.{{{id}}} = result;
+        let {{../tick_state_var}} = &{{../state_group_var}}.{{{id}}};
+        let result = tick({{../tick_state_var}}, tick_info)?;
+        {{../update_group_var}}.{{{id}}} = result;
     }
 
 {{/each}}
