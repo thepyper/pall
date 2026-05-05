@@ -7,8 +7,28 @@ use crate::machine::{
 
 use super::error::CompileError;
 
+/// Context passed to code generation helpers for variable naming.
+pub struct CodegenContext {
+    /// Variable name for the Persistent struct parameter (e.g. "x").
+    pub state_var: String,
+    /// Variable name for the Update struct local (e.g. "y").
+    pub update_var: String,
+}
+
+impl CodegenContext {
+    pub fn new(state_var: &str, update_var: &str) -> Self {
+        Self {
+            state_var: state_var.to_string(),
+            update_var: update_var.to_string(),
+        }
+    }
+}
+
 /// Build a JSON data context for a single machine's types template.
-pub fn build_types_data(machine: &crate::machine::StateMachine) -> serde_json::Value {
+pub fn build_types_data(
+    machine: &crate::machine::StateMachine,
+    context: &CodegenContext,
+) -> serde_json::Value {
     let mut inputs = vec![];
     for (name, input) in &machine.inputs {
         let ident = safe_ident(name);
@@ -84,12 +104,15 @@ pub fn build_types_data(machine: &crate::machine::StateMachine) -> serde_json::V
         "signals": signals,
         "timers": timers,
         "constants": constants,
+        "state_var": context.state_var.clone(),
+        "update_var": context.update_var.clone(),
     })
 }
 
 /// Build a JSON data context for a single machine's tick template.
 pub fn build_tick_data(
     machine: &crate::machine::StateMachine,
+    context: &CodegenContext,
 ) -> Result<serde_json::Value, Vec<CompileError>> {
     let mut errors = Vec::new();
 
@@ -113,12 +136,14 @@ pub fn build_tick_data(
         field_list.push(safe_ident(name));
     }
 
+    let context = CodegenContext::new(&context.state_var, &context.update_var);
+
     let mut states = vec![];
     for (state_name, state) in &machine.states {
         let mut actions_json = vec![];
         for action in &state.actions {
             let when_code = match &action.when {
-                Some(expr) => match condition_to_rust(expr, &field_list) {
+                Some(expr) => match condition_to_rust(expr, &context) {
                     Ok(code) => code,
                     Err(e) => {
                         errors.push(e);
@@ -130,7 +155,7 @@ pub fn build_tick_data(
 
             let mut stmts = vec![];
             for stmt in &action.r#do {
-                match stmt_to_rust(stmt, &field_list) {
+                match stmt_to_rust(stmt, &context) {
                     Ok(code) => stmts.push(code),
                     Err(e) => errors.push(e),
                 }
@@ -145,7 +170,7 @@ pub fn build_tick_data(
         let mut transitions_json = vec![];
         for trans in &state.transitions {
             let when_code = match &trans.when {
-                Some(expr) => match condition_to_rust(expr, &field_list) {
+                Some(expr) => match condition_to_rust(expr, &context) {
                     Ok(code) => code,
                     Err(e) => {
                         errors.push(e);
@@ -157,7 +182,7 @@ pub fn build_tick_data(
 
             let mut stmts = vec![];
             for stmt in &trans.r#do {
-                match stmt_to_rust(stmt, &field_list) {
+                match stmt_to_rust(stmt, &context) {
                     Ok(code) => stmts.push(code),
                     Err(e) => errors.push(e),
                 }
@@ -181,7 +206,7 @@ pub fn build_tick_data(
 
     let mut signals_json = vec![];
     for (name, sig) in &machine.signals {
-        let expr_code = match expr_to_rust(&sig.expr, &field_list) {
+        let expr_code = match expr_to_rust(&sig.expr, &context) {
             Ok(code) => code,
             Err(e) => {
                 errors.push(e);
@@ -198,7 +223,7 @@ pub fn build_tick_data(
     let mut timers_json = vec![];
     for (name, timer) in &machine.timers {
         let when_code = match &timer.when {
-            Some(expr) => match expr_to_rust(expr, &field_list) {
+            Some(expr) => match expr_to_rust(expr, &context) {
                 Ok(code) => code,
                 Err(e) => {
                     errors.push(e);
@@ -245,6 +270,8 @@ pub fn build_tick_data(
         "signals": signals_json,
         "timers": timers_json,
         "constants": constants_json,
+        "state_var": context.state_var.clone(),
+        "update_var": context.update_var.clone(),
     }))
 }
 
@@ -258,7 +285,10 @@ pub fn build_mod_data(machines: &[crate::machine::StateMachine]) -> serde_json::
 }
 
 /// Build a JSON data context for the group.rs template.
-pub fn build_group_data(machines: &[crate::machine::StateMachine]) -> serde_json::Value {
+pub fn build_group_data(
+    machines: &[crate::machine::StateMachine],
+    context: &CodegenContext,
+) -> serde_json::Value {
     let mut machine_fields = vec![];
     let mut machine_ticks = vec![];
     let mut link_assignments = vec![];
@@ -290,6 +320,8 @@ pub fn build_group_data(machines: &[crate::machine::StateMachine]) -> serde_json
         "machine_fields": machine_fields,
         "machine_ticks": machine_ticks,
         "link_assignments": link_assignments,
+        "state_group_var": context.state_var.clone(),
+        "update_group_var": context.update_var.clone(),
     })
 }
 
@@ -358,20 +390,20 @@ fn safe_ident(name: &str) -> String {
 
 pub fn expr_to_rust(
     expr: &Expression,
-    persistent_fields: &[String],
+    ctx: &CodegenContext,
 ) -> Result<String, CompileError> {
     match expr {
         Expression::Value(v) => Ok(value_to_rust(v)),
         Expression::Reference(r) => {
             let ident = safe_ident(&r.target);
-            Ok(format!("state.{ident}"))
+            Ok(format!("{}.{}", ctx.state_var, ident))
         }
         Expression::Parenthesis(inner) => {
-            let inner_code = expr_to_rust(inner, persistent_fields)?;
+            let inner_code = expr_to_rust(inner, ctx)?;
             Ok(format!("({inner_code})"))
         }
         Expression::Unary(op, inner) => {
-            let inner_code = expr_to_rust(inner, persistent_fields)?;
+            let inner_code = expr_to_rust(inner, ctx)?;
             let rust_op = match op {
                 UnaryOperator::Negate => "-",
                 UnaryOperator::Not => "!",
@@ -380,8 +412,8 @@ pub fn expr_to_rust(
             Ok(format!("{rust_op}{inner_code}"))
         }
         Expression::Binary(left, op, right) => {
-            let left_code = expr_to_rust(left, persistent_fields)?;
-            let right_code = expr_to_rust(right, persistent_fields)?;
+            let left_code = expr_to_rust(left, ctx)?;
+            let right_code = expr_to_rust(right, ctx)?;
             let rust_op = match op {
                 BinaryOperator::Add => "+",
                 BinaryOperator::Sub => "-",
@@ -439,51 +471,51 @@ fn value_to_rust(v: &Value) -> String {
 
 pub fn stmt_to_rust(
     stmt: &FullStatement,
-    persistent_fields: &[String],
+    ctx: &CodegenContext,
 ) -> Result<String, CompileError> {
     let target = safe_ident(&stmt.statement.target);
     let expr_code = expr_to_rust(
         &stmt.statement.expression,
-        persistent_fields,
+        ctx,
     )?;
 
     let op = &stmt.statement.operator;
     let rust_stmt = match op {
         crate::machine::AssignmentOperator::Assign => {
-            format!("update.{target} = Some({expr_code});")
+            format!("{}.{} = Some({expr_code});", ctx.update_var, target)
         }
         crate::machine::AssignmentOperator::AddAssign => {
-            format!("update.{target} = Some({target} + {expr_code});")
+            format!("{}.{} = Some({} + {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::SubAssign => {
-            format!("update.{target} = Some({target} - {expr_code});")
+            format!("{}.{} = Some({} - {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::MulAssign => {
-            format!("update.{target} = Some({target} * {expr_code});")
+            format!("{}.{} = Some({} * {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::DivAssign => {
-            format!("update.{target} = Some({target} / {expr_code});")
+            format!("{}.{} = Some({} / {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::ModAssign => {
-            format!("update.{target} = Some({target} % {expr_code});")
+            format!("{}.{} = Some({} % {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::AndAssign => {
-            format!("update.{target} = Some({target} & {expr_code});")
+            format!("{}.{} = Some({} & {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::OrAssign => {
-            format!("update.{target} = Some({target} | {expr_code});")
+            format!("{}.{} = Some({} | {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::XorAssign => {
-            format!("update.{target} = Some({target} ^ {expr_code});")
+            format!("{}.{} = Some({} ^ {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::LogicalAndAssign => {
-            format!("update.{target} = Some({target} && {expr_code});")
+            format!("{}.{} = Some({} && {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::LogicalOrAssign => {
-            format!("update.{target} = Some({target} || {expr_code});")
+            format!("{}.{} = Some({} || {expr_code});", ctx.update_var, target, target)
         }
         crate::machine::AssignmentOperator::LogicalXorAssign => {
-            format!("update.{target} = Some({target} ^^ {expr_code});")
+            format!("{}.{} = Some({} ^^ {expr_code});", ctx.update_var, target, target)
         }
     };
     Ok(rust_stmt)
@@ -583,7 +615,7 @@ fn int_suffix_for_type(t: &crate::machine::Type) -> &'static str {
 /// Returns the raw expression code — truthiness is implicit in Rust.
 pub fn condition_to_rust(
     expr: &FullExpression,
-    persistent_fields: &[String],
+    ctx: &CodegenContext,
 ) -> Result<String, CompileError> {
-    expr_to_rust(&expr.expression, persistent_fields)
+    expr_to_rust(&expr.expression, ctx)
 }
