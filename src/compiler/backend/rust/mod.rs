@@ -6,6 +6,7 @@ use handlebars::Handlebars;
 use crate::machine::StateMachine;
 use super::super::{Backend, FileSet};
 use super::super::codegen;
+use super::super::codegen::CodegenContext;
 use super::super::error::CompileError;
 
 const MOD_TEMPLATE: &str = include_str!("templates/mod.hbs");
@@ -19,6 +20,15 @@ pub struct RustBackend {
 }
 
 impl RustBackend {
+    /// Variable name for the Persistent struct parameter in per-machine tick().
+    pub const STATE_NAME: &'static str = "x";
+    /// Variable name for the Update struct local in per-machine tick().
+    pub const UPDATE_NAME: &'static str = "y";
+    /// Variable name for the Persistent struct parameter in group tick().
+    pub const STATE_GROUP_NAME: &'static str = "xs";
+    /// Variable name for the Update struct local in group tick().
+    pub const UPDATE_GROUP_NAME: &'static str = "ys";
+
     pub fn new() -> Self {
         let mut hb = Handlebars::new();
         hb.register_template_string("mod", MOD_TEMPLATE.to_string())
@@ -53,21 +63,24 @@ impl Backend for RustBackend {
         let mut files = HashMap::new();
 
         // ── Per-machine types files ────────────────────────────────────────
+        let types_ctx = CodegenContext::new(Self::STATE_NAME, Self::UPDATE_NAME);
         for machine in machines {
-            let data = codegen::build_types_data(machine);
+            let data = codegen::build_types_data(machine, &types_ctx);
             let content = self.render("types", &data);
             files.insert(format!("{}\\types.rs", machine.id), content);
         }
 
         // ── Per-machine tick files ─────────────────────────────────────────
+        let tick_ctx = CodegenContext::new(Self::STATE_NAME, Self::UPDATE_NAME);
         for machine in machines {
-            let data = codegen::build_tick_data(machine)?;
+            let data = codegen::build_tick_data(machine, &tick_ctx)?;
             let content = self.render("tick", &data);
             files.insert(format!("{}\\tick.rs", machine.id), content);
         }
 
         // ── Group file ─────────────────────────────────────────────────────
-        let group_data = codegen::build_group_data(machines);
+        let group_ctx = CodegenContext::new(Self::STATE_GROUP_NAME, Self::UPDATE_GROUP_NAME);
+        let group_data = codegen::build_group_data(machines, &group_ctx);
         let group_content = self.render("group", &group_data);
         files.insert("group.rs".to_string(), group_content);
 
