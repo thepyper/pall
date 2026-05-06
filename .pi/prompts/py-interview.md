@@ -27,6 +27,8 @@ Record everything that is useful to convey the objective and the details that ha
 # Plan
 
 Then, create a detailed plan out of this interview, with care to create MICRO steps that are easy and address a single concern for what is possible.
+The plan should be divided in phases, each made of steps (if the plan is too easy to split, just do one phase).
+The plan MUST include (even if not mentioned in interview) final steps that verify compilation and correct test results.
 Write the plan in:
 .py/plans/$1/PLAN.md 
 
