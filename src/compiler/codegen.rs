@@ -272,6 +272,7 @@ pub fn build_tick_data(
         "constants": constants_json,
         "state_var": context.state_var.clone(),
         "update_var": context.update_var.clone(),
+        "types_module": format!("{}_types", machine.id),
     }))
 }
 

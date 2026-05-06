@@ -22,26 +22,43 @@ Create an end-to-end stress test for the current pall compiler implementation by
 
 Rationale: Rust examples must be single-file. A multi-file test harness requires a proper binary crate.
 
-### 2. Micro-Runtime Binary (`src/bin/micro_runtime/`)
+### 2. Two-Binary Architecture
 
-A dedicated binary crate for generation + execution + testing:
+Two separate binaries for clean separation of concerns:
+
+#### `src/bin/creator/` — Code Generator
 
 ```
-src/bin/
-├── micro_runtime/
-│   ├── Cargo.toml      # depends on pall library
-│   └── src/
-│       ├── main.rs     # entry: generates → includes → runs tests
-│       └── lib.rs      # stubs (TickInfo, TickError) + include! macros
-└── ...
+src/bin/creator/
+├── Cargo.toml
+└── src/main.rs
 ```
+
+**Responsibility:** Creates the machine definition and compiles it to Rust source code.
 
 **Flow:**
-1. Calls `Compiler.compile(&[machine])` → `FileSet` (HashMap of filename → code)
-2. Writes generated files to a temp directory for inspection/debugging
-3. `include!()`s the generated files into `lib.rs` at compile time
-4. Provides stubs (`TickInfo`, `TickError`, etc.) at the right module level so generated imports resolve
-5. Runs `tick()` in a loop until goal state or max 100 ticks, asserts result
+1. Builds `StateMachine` programmatically
+2. Calls `Compiler.compile(&[machine])` → `FileSet`
+3. Writes generated files to `src/bin/runner/generated/` directory
+4. Prints which files were written and their paths
+
+#### `src/bin/runner/` — Micro-Runtime
+
+```
+src/bin/runner/
+├── Cargo.toml
+└── src/
+    ├── main.rs     # includes generated code, runs tick loop, runs tests
+    └── lib.rs      # stubs (TickInfo, TickError) + include! macros
+```
+
+**Responsibility:** Includes pre-generated code and executes it.
+
+**Flow:**
+1. `include!()`s the generated files from `generated/` directory
+2. Provides stubs (`TickInfo`, `TickError`) at the right module level
+3. Runs `tick()` in a loop until goal state or max 100 ticks, asserts result
+4. `#[test]` functions verify compilation and correctness
 
 ### 3. Generated Code Integration
 
@@ -157,9 +174,9 @@ A complete specification covering:
 
 | File/Directory | Action |
 |----------------|--------|
-| `src/bin/micro_runtime/` | **New** — micro-runtime binary with multi-file structure |
-| `src/bin/micro_runtime/src/lib.rs` | **New** — stubs + `include!` macros for generated code |
-| `src/bin/micro_runtime/src/main.rs` | **New** — generation + execution + test logic |
+| `src/bin/creator/` | **New** — code generator binary |
+| `src/bin/runner/src/lib.rs` | **New** — stubs + `include!` macros for generated code |
+| `src/bin/runner/src/main.rs` | **New** — includes generated code, runs tick loop, runs tests |
 | `machine_spec.md` | **New** — complete machine YAML specification |
 | `Cargo.toml` | **Modify** — add `chrono` dependency |
 | `src/main.rs` | **Keep as-is** (current demo binary) |
