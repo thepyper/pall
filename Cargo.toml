@@ -10,3 +10,12 @@ pest = "2.8.6"
 pest_derive = "2.8.6"
 handlebars = "5"
 serde_json = "1"
+chrono = "0.4"
+
+[[bin]]
+name = "creator"
+path = "src/bin/creator/src/main.rs"
+
+[[bin]]
+name = "runner"
+path = "src/bin/runner/src/main.rs"
