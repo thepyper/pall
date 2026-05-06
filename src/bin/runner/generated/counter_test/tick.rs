@@ -11,13 +11,13 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
     let mut y = Update::default();
 
     match x.state {
-        State::Goal => {
-        }
-
         State::Initial => {
             y.state = Some(State::Counting);
             return Ok(y);
 
+        }
+
+        State::Goal => {
         }
 
         State::Counting => {
