@@ -67,7 +67,7 @@ impl Backend for RustBackend {
         for machine in machines {
             let data = codegen::build_types_data(machine, &types_ctx);
             let content = self.render("types", &data);
-            files.insert(format!("{}\\types.rs", machine.id), content);
+            files.insert(format!("{}/types.rs", machine.id), content);
         }
 
         // ── Per-machine tick files ─────────────────────────────────────────
@@ -75,7 +75,7 @@ impl Backend for RustBackend {
         for machine in machines {
             let data = codegen::build_tick_data(machine, &tick_ctx)?;
             let content = self.render("tick", &data);
-            files.insert(format!("{}\\tick.rs", machine.id), content);
+            files.insert(format!("{}/tick.rs", machine.id), content);
         }
 
         // ── Group file ─────────────────────────────────────────────────────

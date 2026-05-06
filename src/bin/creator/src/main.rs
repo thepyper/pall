@@ -59,12 +59,13 @@ fn build_counter_machine() -> StateMachine {
     };
     states.insert("goal".to_string(), goal_state);
 
-    // Variable: counter (U32, initial 0)
+    // Variable: counter (I64, initial 0)
+    // Using I64 to match codegen's value_to_rust which outputs i64 literals.
     let mut variables: HashMap<String, Variable> = HashMap::new();
     variables.insert(
         "counter".to_string(),
         Variable {
-            r#type: Type::U32,
+            r#type: Type::I64,
             initial: Some(Value::Integer(IntegerValue {
                 value: 0,
                 fmt: IntegerFmt::Dec,
@@ -94,22 +95,21 @@ fn compile_machine(machine: &StateMachine) -> Result<FileSet, Vec<pall::compiler
 
 /// Write generated files to the runner's generated/ directory.
 fn write_generated_files(files: &FileSet) -> PathBuf {
-    // Resolve the runner's generated directory relative to the project root.
-    // We're at: pall/src/bin/creator/src/main.rs
-    // Project root: ../../../ (from main.rs)
-    // Runner generated: src/bin/runner/generated/
+    // CARGO_MANIFEST_DIR is the parent crate's directory (pall/)
+    // since the binary is defined there.
+    // Runner generated dir: src/bin/runner/generated/ relative to project root.
     let project_root = env!("CARGO_MANIFEST_DIR");
-    let output_dir = PathBuf::from(project_root)
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("src/bin/runner/generated");
+    let output_dir = PathBuf::from(project_root).join("src/bin/runner/generated/");
 
     fs::create_dir_all(&output_dir).expect("failed to create generated directory");
 
     for (name, content) in files {
         let file_path = output_dir.join(name);
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent).unwrap_or_else(|e| {
+                panic!("failed to create directory {}: {}", parent.display(), e);
+            });
+        }
         fs::write(&file_path, content).unwrap_or_else(|e| {
             panic!("failed to write {}: {}", file_path.display(), e);
         });

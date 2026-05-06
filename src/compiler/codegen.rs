@@ -136,6 +136,41 @@ pub fn build_tick_data(
         field_list.push(safe_ident(name));
     }
 
+    // Build variables list for init() in tick template
+    let mut variables_json = vec![];
+    for (name, var) in &machine.variables {
+        let ident = safe_ident(name);
+        let default_val = if let Some(ref init) = var.initial {
+            value_to_literal(init)
+        } else {
+            default_value_for_type(&var.r#type)
+        };
+        variables_json.push(serde_json::json!({
+            "name": ident,
+            "rust_type": type_to_rust(&var.r#type),
+            "default_value": default_val,
+        }));
+    }
+
+    // Build inputs list for init() in tick template
+    let mut inputs_json = vec![];
+    for (name, input) in &machine.inputs {
+        inputs_json.push(serde_json::json!({
+            "name": safe_ident(name),
+            "rust_type": type_to_rust(&input.r#type),
+        }));
+    }
+
+    // Build constants list for init() in tick template
+    let mut constants_json = vec![];
+    for (name, constant) in &machine.constants {
+        constants_json.push(serde_json::json!({
+            "name": safe_ident(name),
+            "rust_type": type_to_rust(&constant.r#type),
+            "value": format!("{}", safe_ident(name)),
+        }));
+    }
+
     let context = CodegenContext::new(&context.state_var, &context.update_var);
 
     let mut states = vec![];
@@ -239,15 +274,6 @@ pub fn build_tick_data(
         }));
     }
 
-    let mut constants_json = vec![];
-    for (name, constant) in &machine.constants {
-        constants_json.push(serde_json::json!({
-            "name": safe_ident(name),
-            "rust_type": type_to_rust(&constant.r#type),
-            "value": format!("{}", safe_ident(name)),
-        }));
-    }
-
     if !errors.is_empty() {
         return Err(errors);
     }
@@ -269,6 +295,8 @@ pub fn build_tick_data(
         "state_variants": state_variants,
         "signals": signals_json,
         "timers": timers_json,
+        "variables": variables_json,
+        "inputs": inputs_json,
         "constants": constants_json,
         "state_var": context.state_var.clone(),
         "update_var": context.update_var.clone(),

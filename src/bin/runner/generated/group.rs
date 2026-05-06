@@ -3,12 +3,8 @@
 
 use serde::{Serialize, Deserialize};
 
-{{#each machine_fields}}
-use super::{{{id}}}_types::{Persistent, Update};
-{{/each}}
-{{#each machine_ticks}}
-use super::{{{id}}}_tick::tick;
-{{/each}}
+use super::counter_test_types::{Persistent, Update};
+use super::counter_test_tick::tick;
 use super::TickInfo;
 use super::error::TickError;
 
@@ -16,54 +12,33 @@ use super::error::TickError;
 /// Holds persistent state for all compiled machines.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GroupPersistent {
-{{#each machine_fields}}
-    pub {{{id}}}: Persistent,
-{{/each}}
+    pub counter_test: Persistent,
 }
 
 // ── GroupUpdate ────────────────────────────────────────────────────────────
 /// Holds updates from all machines after one tick.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GroupUpdate {
-{{#each machine_ticks}}
-    pub {{{id}}}: Update,
-{{/each}}
+    pub counter_test: Update,
 }
 
 // ── Group Tick Function ────────────────────────────────────────────────────
 /// Execute one tick across all machines.
 /// Phase 1: propagate links. Phase 2: tick each machine.
 pub fn group_tick(
-    {{{state_group_var}}}: &GroupPersistent,
+    xs: &GroupPersistent,
     tick_info: &TickInfo,
 ) -> Result<GroupUpdate, TickError> {
-    let mut {{{update_group_var}}} = GroupUpdate {
-{{#each machine_ticks}}
-        {{{id}}}: Update::default(),
-{{/each}}
+    let mut ys = GroupUpdate {
+        counter_test: Update::default(),
     };
 
-    {{!-- Phase 1: Link propagation --}}
-{{#if link_assignments}}
-{{#each link_assignments}}
+
     {
-        let val = &{{../state_group_var}}.{{{source_machine}}}.{{{source_var}}};
-        let mut g = &{{../state_group_var}}.{{{target_machine}}};
-        let mut u = &mut {{../update_group_var}}.{{{target_machine}}};
-        u.{{{target_var}}} = Some(val.clone());
+        let x = &xs.counter_test;
+        let result = tick(x, tick_info)?;
+        ys.counter_test = result;
     }
 
-{{/each}}
-{{/if}}
-
-    {{!-- Phase 2: Per-machine ticks --}}
-{{#each machine_ticks}}
-    {
-        let {{../tick_state_var}} = &{{../state_group_var}}.{{{id}}};
-        let result = tick({{../tick_state_var}}, tick_info)?;
-        {{../update_group_var}}.{{{id}}} = result;
-    }
-
-{{/each}}
-    Ok({{{update_group_var}}})
+    Ok(ys)
 }
