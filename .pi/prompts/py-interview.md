@@ -4,11 +4,13 @@ argument-hint: "<plan-name>"
 ---
 ## Procedure
 
-# Interview
+# Objective
 
 First ask the user for the broad objective for this plan.
 
 Then gather some sensible context.
+
+# Interview
 
 Then, interview the user.
 Asking the user all the informations you cannot gather by yourself to reach the objective.
