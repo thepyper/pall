@@ -450,6 +450,23 @@ Verify all existing tests pass.
 
 ---
 
+## Notes & Deviations from Plan
+
+### Handlebars Context Fix (during execution)
+During execution, it was discovered that Handlebars template variables inside `{{#each}}` blocks cannot access root-level variables without the `../` parent context prefix. This required:
+- Replacing `{{{update_var}}}` with `{{../update_var}}` inside `{{#each timers}}` and `{{#each signals}}` blocks
+- Replacing `{{{state_var}}}` with `{{../state_var}}` inside `{{#each timers}}` blocks
+- Replacing `{{{update_var}}}` with `{{../../update_var}}` inside `{{#each states}}` → `{{#each transitions}}` blocks
+- Same for `group.hbs`: `{{{state_group_var}}}` → `{{../state_group_var}}` and `{{{update_group_var}}}` → `{{../update_group_var}}` inside `{{#each link_assignments}}` and `{{#each machine_ticks}}` blocks
+
+### Two Contexts for Group Data
+The group template needs both the tick's `state_var` ("x") for the `tick()` function call AND the group's `state_group_var` ("xs") for the `GroupPersistent` parameter. Since `build_group_data` only had access to the group context, `tick_state_var` was added to the group JSON, and `build_group_data` was modified to accept two `CodegenContext` parameters (group_ctx and tick_ctx).
+
+### Group Function Signature at Top Level
+The group function signature (`{{state_group_var}}`) and local variable (`{{update_group_var}}`) are at the top level of the template (not inside any `each` block), so they don't need `../` prefix and work correctly.
+
+---
+
 ## Risks & Mitigations
 
 | Risk | Mitigation |
