@@ -1,7 +1,5 @@
-mod machine;
-mod compiler;
-
-use machine::*;
+use pall::compiler::{Compiler, RustBackend};
+use pall::machine::*;
 use std::collections::HashMap;
 
 fn build_sample_machine() -> StateMachine {
@@ -93,8 +91,8 @@ fn main() {
     let machines = vec![machine];
 
     // Compile
-    let rust_backend = compiler::RustBackend::new();
-    let compiler = compiler::Compiler::new(rust_backend);
+    let rust_backend = RustBackend::new();
+    let compiler = Compiler::new(rust_backend);
 
     match compiler.compile(&machines) {
         Ok(files) => {

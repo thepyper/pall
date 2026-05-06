@@ -19,7 +19,7 @@ pub use actions::{Action, Transition, State};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct StateMachine
 {
     pub id: String,

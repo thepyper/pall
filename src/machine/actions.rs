@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use super::expression::FullExpression;
 use super::statement::FullStatement;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Action
 {
     pub when: Option<FullExpression>,
@@ -11,7 +11,7 @@ pub struct Action
     pub r#do: Vec<FullStatement>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Transition
 {
     pub when: Option<FullExpression>,
@@ -20,7 +20,7 @@ pub struct Transition
     pub target: String,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct State
 {
     #[serde(default)]

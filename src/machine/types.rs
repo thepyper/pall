@@ -20,7 +20,7 @@ pub enum StringFmt {
     SingleQuote,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub enum Type
 {
     Bool,
