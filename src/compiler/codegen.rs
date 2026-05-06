@@ -487,37 +487,37 @@ pub fn stmt_to_rust(
             format!("{}.{} = Some({expr_code});", ctx.update_var, target)
         }
         crate::machine::AssignmentOperator::AddAssign => {
-            format!("{}.{} = Some({} + {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} + {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::SubAssign => {
-            format!("{}.{} = Some({} - {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} - {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::MulAssign => {
-            format!("{}.{} = Some({} * {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} * {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::DivAssign => {
-            format!("{}.{} = Some({} / {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} / {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::ModAssign => {
-            format!("{}.{} = Some({} % {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} % {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::AndAssign => {
-            format!("{}.{} = Some({} & {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} & {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::OrAssign => {
-            format!("{}.{} = Some({} | {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} | {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::XorAssign => {
-            format!("{}.{} = Some({} ^ {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} ^ {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::LogicalAndAssign => {
-            format!("{}.{} = Some({} && {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} && {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::LogicalOrAssign => {
-            format!("{}.{} = Some({} || {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} || {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::LogicalXorAssign => {
-            format!("{}.{} = Some({} ^^ {expr_code});", ctx.update_var, target, target)
+            format!("{}.{} = Some({}.{} ^^ {expr_code});", ctx.update_var, target, ctx.state_var, target)
         }
     };
     Ok(rust_stmt)
