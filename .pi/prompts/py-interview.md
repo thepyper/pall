@@ -1,5 +1,5 @@
 ---
-description: Interview to define a plan 
+description: Interview to define and execute a plan 
 argument-hint: "<plan-name>"
 ---
 ## Procedure
@@ -26,6 +26,8 @@ When the interview is ended, create or overwrite a detailed summary of everythin
 Only write the final decisions, it's not important to record anytime somebody changed it's mind, it's important to capture what has been actually decided in the end.
 Record everything that is useful to convey the objective and the details that have been discovered in the interview. THIS IS YOUR ONLY TIME TO SAVE INFORMATION, THEN ALL IS LOST.
 
+Then do git commit (for INTERVIEW.md file).
+
 # Plan
 
 Then, create a detailed plan out of this interview, with care to create MICRO steps that are easy and address a single concern for what is possible.
@@ -34,16 +36,26 @@ The plan MUST include (even if not mentioned in interview) final steps that veri
 Write the plan in:
 .py/plans/$1/PLAN.md 
 
+Then do git commit (for PLAN.md file).
+
 # Review
 
 Then, review the plan, looking for errors, problems, missing parts, inconsistencies, discrepancies with the interview, missing points from the interview.
-If the plan does not feel good enough to be executed, explain to the user the problems and ask if ho prefers to solve the problems or continue as-is.
-If the user wants to solve the problems, return to the interview phase, then integrate INTERVIEW.md, then reformulate PLAN.md, then review again.
+If the plan has some problems that you can solve independenly, update INTERVIEW.md and / or PLAN.md accordingly, and do git commit.
+It the plan has problems that need user attention, do another round of interview with the user, then plan again, then review again.
+
+If the plan has been changed, do git commit (for INTERVIEW.md and PLAN.md files).
+
+# Execution
+
+If you got there then the plan is good, so execute it step by step.
+Do git commit after each step.
 
 ## Completion criteria
 
 [ ] INTERVIEW.md has been written with full information captured by the whole Q&A session
 [ ] PLAN.md has been written with a complete, detailed, micro-stepped (single concern per-step) plan ready to be executed to obtain the objective 
-[ ] Plan review has been done with positive outcome
+[ ] Plan has been reviewed with positive outcome
+[ ] Plan has been executed completely with positive outcome
 
 IMPORTANT: DO NOT STOP UNTIL ALL COMPLETION CRITERIA HAS BEEN MET!!
