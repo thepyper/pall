@@ -2,10 +2,8 @@
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::convert::TryFrom;
-use std::convert::TryInto;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
 /// Represents the possible states of machine: {{{machine_id}}}
@@ -28,7 +26,7 @@ impl State {
 }
 
 impl fmt::Display for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
@@ -77,20 +75,4 @@ pub struct Persistent {
     {{#each timers}}
     pub {{{name}}}: {{rust_type}},
     {{/each}}
-}
-
-// ── Update ───────────────────────────────────────────────────────────────────
-/// Holds changes produced during one tick for machine: {{{machine_id}}}
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct Update {
-    {{#each variables}}
-    pub {{{name}}}: Option<{{rust_type}}>,
-    {{/each}}
-    {{#each signals}}
-    pub {{{name}}}: Option<{{rust_type}}>,
-    {{/each}}
-    {{#each timers}}
-    pub {{{name}}}: Option<{{rust_type}}>,
-    {{/each}}
-    pub state: Option<State>,
 }

@@ -2,33 +2,31 @@
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::convert::TryFrom;
-use std::convert::TryInto;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
 /// Represents the possible states of machine: counter_test
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
+    Goal,
     Initial,
     Counting,
-    Goal,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
+            State::Goal => "goal",
             State::Initial => "initial",
             State::Counting => "counting",
-            State::Goal => "goal",
         }
     }
 }
 
 impl fmt::Display for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
@@ -37,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
+            "goal" => Ok(State::Goal),
             "initial" => Ok(State::Initial),
             "counting" => Ok(State::Counting),
-            "goal" => Ok(State::Goal),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -60,12 +58,4 @@ pub struct Persistent {
     /// Current state (enum)
     pub state: State,
     pub counter: i64,
-}
-
-// ── Update ───────────────────────────────────────────────────────────────────
-/// Holds changes produced during one tick for machine: counter_test
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct Update {
-    pub counter: Option<i64>,
-    pub state: Option<State>,
 }

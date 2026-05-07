@@ -1,34 +1,33 @@
 // Tick implementation for machine: counter_test
 // Auto-generated. Do not edit.
 
-use super::counter_test_types::{Persistent, Update, State};
+use super::counter_test_types::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
 /// Execute one tick of machine: counter_test
-pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
-    let mut y = Update::default();
+pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
+    let mut y = x.clone();
 
     match x.state {
+        State::Goal => {
+
+        }
+
         State::Initial => {
-            y.state = Some(State::Counting);
-            return Ok(y);
+            y.state = State::Counting;
 
         }
 
         State::Counting => {
-                y.counter = Some(x.counter + 1i64);
-
+            y.counter = x.counter + 1i64;
             if x.counter >= 10i64 {
-            y.state = Some(State::Goal);
-            return Ok(y);
+            y.state = State::Goal;
             }
 
         }
 
-        State::Goal => {
-        }
 
     }
 

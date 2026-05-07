@@ -7,7 +7,7 @@ pub mod {{{id}}}_tick;
 pub mod group;
 
 {{#each machines}}
-pub use {{{id}}}_types::{Persistent, Update, State};
+pub use {{{id}}}_types::Persistent;
 pub use {{{id}}}_tick::{tick, init};
 {{/each}}
-pub use group::{GroupPersistent, GroupUpdate, group_tick};
+pub use group::{GroupPersistent, group_tick};

@@ -10,7 +10,7 @@ pub mod error {
     }
 
     impl fmt::Display for TickError {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}", self.message)
         }
     }
@@ -39,17 +39,6 @@ mod group {
 
 // ── Re-exports for convenience ──────────────────────────────────────────────
 
-pub use counter_test_types::{Persistent, State, Update};
+pub use counter_test_types::Persistent;
+pub use counter_test_types::State;
 pub use counter_test_tick::{init, tick};
-
-// ── Helper: apply Update to Persistent ──────────────────────────────────────
-
-/// Merge an Update into a Persistent, overwriting Some values.
-pub fn apply_update(state: &mut Persistent, update: &Update) {
-    if let Some(v) = update.counter {
-        state.counter = v;
-    }
-    if let Some(s) = update.state {
-        state.state = s;
-    }
-}

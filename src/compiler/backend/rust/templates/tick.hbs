@@ -1,72 +1,35 @@
 // Tick implementation for machine: {{{machine_id}}}
 // Auto-generated. Do not edit.
 
-use super::{{{types_module}}}::{Persistent, Update, State};
+use super::{{{types_module}}}::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
 /// Execute one tick of machine: {{{machine_id}}}
-pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
-    let mut {{{update_var}}} = Update::default();
+pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
+    let mut {{{update_var}}} = {{{state_var}}}.clone();
 
     match {{{state_var}}}.state {
-{{#each states}}
-        State::{{{variant}}} => {
-            {{!-- Execute Actions --}}
-            {{#each actions}}
-            {{#if when_rust_code}}
-            if {{{when_rust_code}}} {
-            {{/if}}
-            {{#each statements}}
-                {{{this}}}
-            {{/each}}
-            {{#if when_rust_code}}
-            }
-            {{/if}}
-
-            {{/each}}
-            {{!-- Execute Transitions --}}
-            {{#each transitions}}
-            {{#if when_rust_code}}
-            if {{{when_rust_code}}} {
-            {{/if}}
-            {{#each statements}}
-                {{{this}}}
-            {{/each}}
-            {{../../update_var}}.state = Some(State::{{{target_variant}}});
-            return Ok({{../../update_var}});
-            {{#if when_rust_code}}
-            }
-            {{/if}}
-
-            {{/each}}
-        }
-
-{{/each}}
+{{{match_body}}}
     }
 
-    {{!-- Calculate Signals (after state/transition logic) --}}
+    {{!-- Calculate Signals (always executed, after state/transition logic) --}}
     {{#each signals}}
-    {
-        let val: {{{rust_type}}} = {{{expr_rust_code}}};
-        {{../update_var}}.{{{name}}} = Some(val);
-    }
+    {{{update_var}}}.{{{name}}} = {{{expr_rust_code}}};
     {{/each}}
 
-    {{!-- Accumulate Timers --}}
+    {{!-- Accumulate Timers (always executed) --}}
     {{#each timers}}
-    {
-        {{#if when_rust_code}}
-        if {{{when_rust_code}}} {
-            {{../update_var}}.{{{name}}} = Some({{../state_var}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
-        } else {
-            {{../update_var}}.{{{name}}} = Some(0 as {{{rust_type}}});
-        }
-        {{else}}
-        {{../update_var}}.{{{name}}} = Some({{../state_var}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}});
-        {{/if}}
+    {{#if when_rust_code}}
+    if {{{when_rust_code}}} {
+        {{{update_var}}}.{{{name}}} = {{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}};
+    } else {
+        {{{update_var}}}.{{{name}}} = 0 as {{{rust_type}}};
     }
+    {{else}}
+    {{{update_var}}}.{{{name}}} = {{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}};
+    {{/if}}
     {{/each}}
 
     Ok({{{update_var}}})

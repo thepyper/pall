@@ -173,9 +173,14 @@ pub fn build_tick_data(
 
     let context = CodegenContext::new(&context.state_var, &context.update_var);
 
-    let mut states = vec![];
+    // Build the match body as a single Rust code string
+    let mut match_body = String::new();
+
     for (state_name, state) in &machine.states {
-        let mut actions_json = vec![];
+        let variant = to_pascal_case(state_name);
+        match_body.push_str(&format!("        State::{} => {{\n", variant));
+
+        // Execute Actions
         for action in &state.actions {
             let when_code = match &action.when {
                 Some(expr) => match condition_to_rust(expr, &context) {
@@ -196,14 +201,21 @@ pub fn build_tick_data(
                 }
             }
 
-            actions_json.push(serde_json::json!({
-                "when_rust_code": when_code,
-                "statements": stmts,
-            }));
+            if !when_code.is_empty() {
+                match_body.push_str(&format!("            if {} {{\n", when_code));
+            }
+            for stmt in &stmts {
+                match_body.push_str(&format!("            {}\n", stmt));
+            }
+            if !when_code.is_empty() {
+                match_body.push_str("            }\n");
+            }
         }
 
-        let mut transitions_json = vec![];
-        for trans in &state.transitions {
+        // Execute Transitions as if/else-if chain
+        let num_transitions = state.transitions.len();
+        let mut needs_closing = false;
+        for (i, trans) in state.transitions.iter().enumerate() {
             let when_code = match &trans.when {
                 Some(expr) => match condition_to_rust(expr, &context) {
                     Ok(code) => code,
@@ -215,6 +227,10 @@ pub fn build_tick_data(
                 None => String::new(),
             };
 
+            let target_variant = to_pascal_case(&trans.target);
+            let update_var = &context.update_var;
+            let target_code = format!("{}.state = State::{};", update_var, target_variant);
+
             let mut stmts = vec![];
             for stmt in &trans.r#do {
                 match stmt_to_rust(stmt, &context) {
@@ -223,20 +239,53 @@ pub fn build_tick_data(
                 }
             }
 
-            transitions_json.push(serde_json::json!({
-                "when_rust_code": when_code,
-                "statements": stmts,
-                "target": trans.target,
-                "target_variant": to_pascal_case(&trans.target),
-            }));
+            let is_last = i == num_transitions - 1;
+            let is_always_true = when_code.is_empty();
+
+            if is_always_true {
+                // Always-true: close previous if-branch, use else
+                if needs_closing {
+                    // Previous was an if/else-if branch, close it and open else
+                    match_body.push_str("            } else {\n");
+                }
+                // First always-true transition: no if/else needed, just execute
+                for stmt in &stmts {
+                    match_body.push_str(&format!("            {}\n", stmt));
+                }
+                match_body.push_str(&format!("            {}\n", target_code));
+                // Only close if we opened an else above
+                if needs_closing || i > 0 {
+                    match_body.push_str("            }\n");
+                }
+                needs_closing = false;
+            } else {
+                // Conditional: open if or else-if
+                if i > 0 && needs_closing {
+                    // Close previous, open else-if (combined)
+                    match_body.push_str(&format!("            }} else if {} {{\n", when_code));
+                } else if i == 0 {
+                    // First transition with condition
+                    match_body.push_str(&format!("            if {} {{\n", when_code));
+                } else {
+                    // Previous was always-true, current is conditional
+                    match_body.push_str(&format!("            }} else if {} {{\n", when_code));
+                }
+                for stmt in &stmts {
+                    match_body.push_str(&format!("            {}\n", stmt));
+                }
+                match_body.push_str(&format!("            {}\n", target_code));
+                if !is_last {
+                    // Don't close yet, next branch will close it
+                    needs_closing = true;
+                } else {
+                    // Last conditional, close it
+                    match_body.push_str("            }\n");
+                    needs_closing = false;
+                }
+            }
         }
 
-        states.push(serde_json::json!({
-            "name": state_name,
-            "variant": to_pascal_case(state_name),
-            "actions": actions_json,
-            "transitions": transitions_json,
-        }));
+        match_body.push_str("\n        }\n\n");
     }
 
     let mut signals_json = vec![];
@@ -291,8 +340,7 @@ pub fn build_tick_data(
         "machine_id": machine.id,
         "initial": initial,
         "initial_variant": to_pascal_case(&initial),
-        "states": states,
-        "state_variants": state_variants,
+        "match_body": match_body,
         "signals": signals_json,
         "timers": timers_json,
         "variables": variables_json,
@@ -513,40 +561,40 @@ pub fn stmt_to_rust(
     let op = &stmt.statement.operator;
     let rust_stmt = match op {
         crate::machine::AssignmentOperator::Assign => {
-            format!("{}.{} = Some({expr_code});", ctx.update_var, target)
+            format!("{}.{} = {expr_code};", ctx.update_var, target)
         }
         crate::machine::AssignmentOperator::AddAssign => {
-            format!("{}.{} = Some({}.{} + {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} + {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::SubAssign => {
-            format!("{}.{} = Some({}.{} - {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} - {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::MulAssign => {
-            format!("{}.{} = Some({}.{} * {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} * {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::DivAssign => {
-            format!("{}.{} = Some({}.{} / {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} / {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::ModAssign => {
-            format!("{}.{} = Some({}.{} % {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} % {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::AndAssign => {
-            format!("{}.{} = Some({}.{} & {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} & {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::OrAssign => {
-            format!("{}.{} = Some({}.{} | {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} | {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::XorAssign => {
-            format!("{}.{} = Some({}.{} ^ {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} ^ {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::LogicalAndAssign => {
-            format!("{}.{} = Some({}.{} && {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} && {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::LogicalOrAssign => {
-            format!("{}.{} = Some({}.{} || {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} || {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
         crate::machine::AssignmentOperator::LogicalXorAssign => {
-            format!("{}.{} = Some({}.{} ^^ {expr_code});", ctx.update_var, target, ctx.state_var, target)
+            format!("{}.{} = {}.{} ^^ {expr_code};", ctx.update_var, target, ctx.state_var, target)
         }
     };
     Ok(rust_stmt)

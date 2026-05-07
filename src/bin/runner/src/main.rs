@@ -27,8 +27,7 @@ fn run_machine(max_ticks: u32) -> Result<u32, String> {
         }
 
         let tick_info = TickInfo { delta_ms: 1000 };
-        let update = tick(&state, &tick_info).map_err(|e| e.message)?;
-        apply_update(&mut state, &update);
+        state = tick(&state, &tick_info).map_err(|e| e.message)?;
         ticks += 1;
 
         println!(
