@@ -5,7 +5,7 @@ use crate::machine::{
     Input, Signal, Statement, Timer, UnaryOperator, Value,
 };
 
-use super::error::CompileError;
+use super::super::super::error::CompileError;
 
 /// Context passed to code generation helpers for variable naming.
 pub struct CodegenContext {

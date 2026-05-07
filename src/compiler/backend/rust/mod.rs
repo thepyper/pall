@@ -1,13 +1,15 @@
 // Phase 4: RustBackend implementation (fleshed out in subsequent steps)
 
+pub mod codegen;
+
 use std::collections::HashMap;
 use handlebars::Handlebars;
 
 use crate::machine::StateMachine;
-use super::super::{Backend, FileSet};
-use super::super::codegen;
-use super::super::codegen::CodegenContext;
-use super::super::error::CompileError;
+use super::{Backend, FileSet};
+use crate::compiler::error::CompileError;
+
+pub use codegen::CodegenContext;
 
 const MOD_TEMPLATE: &str = include_str!("templates/mod.hbs");
 const TYPES_TEMPLATE: &str = include_str!("templates/types.hbs");

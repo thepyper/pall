@@ -1,7 +1,6 @@
 pub mod error;
 pub mod validation;
 pub mod backend;
-pub mod codegen;
 
 pub use backend::rust::RustBackend;
 pub use error::{CompileError, CompileErrorKind, TickError, TickErrorKind};

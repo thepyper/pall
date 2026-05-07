@@ -27,40 +27,54 @@ Apply several fixes and refactorings to the pall state machine compiler to impro
 
 ---
 
-## Decision 2: Update structure — from `Option<>` to actual values
+## Decision 2: Eliminate `Update` struct — use `Persistent` everywhere
 
-**Problem:** `Update` has `Option<FieldType>` for every field, requiring `Some(x)/None` checks everywhere.
+**Problem:** `Update` with `Option<>` fields is unnecessary complexity. Inputs actually CAN change (they receive values from outputs via links). But they change at the group level, not individual machine level. Having a separate Update struct that's almost identical to Persistent (minus inputs) creates duplication.
 
 **Solution:**
-- `Update` fields become direct types (no `Option<>`): `FieldType` instead of `Option<FieldType>`
-- `Update` contains all `Persistent` fields **except inputs** (inputs are constant, never updated)
-- Add `impl Update { fn from_persistent(x: &Persistent) -> Self }` — copies all non-input fields (acts as clone minus inputs)
-- Add `impl Persistent { fn apply_update(&mut self, update: Update) }` — copies Update values back into Persistent
-- Users compare `x.field != y.field` to detect changes
-- Remove `Default` derive from `Update` (no longer meaningful)
+- **Remove `Update` struct entirely.** Use `Persistent` for both input (x) and output (y).
+- `tick(x: &Persistent, tick_info: &TickInfo) -> Persistent` — returns a full Persistent
+- Inside tick: `let mut y = x.clone()` — y has ALL fields including inputs
+- All assignments: `y.field = value` — no `Some()`, no `Option<>`, no `from_persistent`
+- Caller: `state = tick(&state, &tick_info)?` — direct assignment replaces `apply_update`
+- In group tick: `let mut ys = xs.clone()`, then propagate links into `ys.{machine}.{input}`, then `ys.{machine} = machine_tick(&ys.{machine}, tick_info)?`
+- `Persistent::apply_update` method is no longer needed
+- `state_name` is no longer needed on Persistent — use `state.as_str()` directly
 
 **Template changes (`types.hbs`):**
-- Update struct: `pub {{{name}}}: {{rust_type}},` instead of `pub {{{name}}}: Option<{{rust_type}}>,`
-- No `Default` derive on Update
+- Remove `Update` struct entirely
+- Remove `state_name` field from `Persistent`
+- Add `impl Persistent { fn apply_update(&mut self, update: &Persistent) }` — copies all fields except inputs from update into self (for callers who want selective update)
+- Or better: just use direct assignment, no apply_update needed
+
+**Runner simplification:**
+```rust
+// Before: let update = tick(&state, &tick_info)?; apply_update(&mut state, &update);
+// After:  state = tick(&state, &tick_info)?;
+```
 
 ---
 
-## Decision 3: x vs y — all reads use y, inputs use x
+## Decision 3: x vs y — both are `Persistent`, x is input, y is output
 
 **Problem:** Currently `y` is default-initialized (`Update::default()`), and expressions/statements reference `x` for reads and `y` for writes. This causes issues when multiple statements reference the same variable:
 - `foo = bar + baz; foo = foo + beh;` would become `y.foo = x.bar + x.baz; y.foo = x.foo + x.beh;` — second line reads stale `x.foo` instead of updated `y.foo`
 
 **Solution:**
-- `y` initialized as `Update::from_persistent(x)` at tick start (copy of x for all non-input fields)
+- Both x and y are `Persistent` type
+- `let mut y = x.clone()` at tick start — y has ALL fields
 - All reads come from `y`:
   - Variables: `y.field`
   - Signals: `y.field`
   - Timers: `y.field`
   - Constants: `y.field`
   - State (in expressions): `y.state.as_str()` (special string representation)
-- Inputs always read from `x`: `x.field` (they're constant, never in y)
+- Inputs always read from `x`: `x.field` (they're constant during tick, linked at group level)
 - Statement targets always write to `y`: `y.field = ...`
 - State cannot be a statement target (only transitions change state)
+- After tick: `y.state` reflects any state change from transitions
+- After tick: signals/timers are computed and stored in y
+- Group level: `ys` is cloned from `xs`, links modify `ys` inputs, then individual ticks update `ys` machines
 
 **Precalculated field access map:**
 ```json
@@ -76,13 +90,13 @@ Apply several fixes and refactorings to the pall state machine compiler to impro
 }
 ```
 
-- `state` is always `y.state.as_str()` — treated as a string in expressions for comparisons like `state == "counting"`
+- `state` is always `y.state.as_str()` — treated as a string in expressions
 - Inputs are the only category using `x` prefix
 - All other categories use `y` prefix
-- Statement targets (left-hand side) are always `y.field` regardless of category
+- Statement targets are always `y.field`
 
 **Template changes (`tick.hbs`):**
-- `let mut y = Update::from_persistent(x);` instead of `let mut y = Update::default();`
+- `let mut y = x.clone();` — simple clone, not Update::default()
 
 ---
 
@@ -99,20 +113,23 @@ Apply several fixes and refactorings to the pall state machine compiler to impro
 
 ---
 
-## Decision 5: GroupUpdate — collect from individual ticks
+## Decision 5: Group tick — clone xs, propagate links into ys, tick each machine
 
-**Problem:** `GroupUpdate` is initialized with `Update::default()` and then modified. This is unnecessary with the new `Update::from_persistent` pattern.
+**Problem:** `GroupUpdate` was initialized with `Update::default()` and modified in place.
 
 **Solution:**
-- Call each machine's `tick()` individually: `let result1 = machine1::tick(xs.machine1, tick_info)?`
-- Collect results into local variables
-- Build `GroupUpdate` at end: `GroupUpdate { machine1: result1, machine2: result2, ... }`
-- Link propagation stays in phase 1 but now propagates to the individual tick inputs directly
+- `GroupPersistent` and `GroupUpdate` both use `Persistent` for each machine
+- Group tick: `let mut ys = xs.clone()` — full clone with all fields
+- Phase 1: propagate links — `ys.{machine}.{input} = xs.{source_machine}.{output}`
+- Phase 2: individual ticks — `ys.{machine} = {machine}_tick::tick(&ys.{machine}, tick_info)?`
+- Return `Ok(ys)` at the end
+- No intermediate Update structs
 
 **Template changes (`group.hbs`):**
-- No `GroupUpdate { ...: Update::default() }` initialization
-- Individual tick calls with result variables
-- Final `Ok(GroupUpdate { ... })` at the end
+- `ys` is cloned from `xs`
+- Links modify `ys` directly (not through Update)
+- Individual ticks replace machines in `ys`
+- Return `Ok(ys)`
 
 ---
 
@@ -154,12 +171,12 @@ Apply several fixes and refactorings to the pall state machine compiler to impro
 | `src/compiler/codegen.rs` | **Move** → `src/compiler/backend/rust/codegen.rs` |
 | `src/compiler/backend/rust/mod.rs` | Update imports, update field access building |
 | `src/compiler/mod.rs` | Update import path for codegen if re-exported |
-| `src/compiler/backend/rust/templates/tick.hbs` | Rewrite: if/else chain, from_persistent, no return, no state_name |
-| `src/compiler/backend/rust/templates/types.hbs` | Rewrite: Update without Option<>, no state_name, add impl blocks |
-| `src/compiler/backend/rust/templates/group.hbs` | Rewrite: collect from individual ticks, no default Init |
-| `src/bin/creator/src/main.rs` | Update for API changes (apply_update, from_persistent) |
-| `src/bin/runner/src/stubs.rs` | Update apply_update → Persistent::apply_update, remove state_name, Update no longer has Option |
-| `src/bin/runner/src/main.rs` | Update for API changes, add tests |
+| `src/compiler/backend/rust/templates/tick.hbs` | Rewrite: if/else chain, x.clone(), no return, no state_name, no Update |
+| `src/compiler/backend/rust/templates/types.hbs` | Rewrite: remove Update, remove state_name from Persistent, keep x/y as Persistent |
+| `src/compiler/backend/rust/templates/group.hbs` | Rewrite: clone xs into ys, propagate links, individual ticks replace ys machines |
+| `src/bin/creator/src/main.rs` | Simplify: no apply_update/from_persistent needed |
+| `src/bin/runner/src/stubs.rs` | Remove ApplyUpdate trait, remove state_name, Update references |
+| `src/bin/runner/src/main.rs` | Simplify: `state = tick(&state, &tick_info)?` |
 | `src/bin/runner/generated/` | **Regenerate** after compiler changes |
 
 ---
