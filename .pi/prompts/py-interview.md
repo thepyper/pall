@@ -4,11 +4,16 @@ argument-hint: "<plan-name>"
 ---
 ## Procedure
 
+This describes a procedure to interview the user, then create a plan, review it, and execute it.
+The following files will be created in the process:
+.py/plans/$1/INTERVIEW.md   - interview recap
+.py/plans/$1/PLAN.md        - actual plan
+
 # Objective
 
 First ask the user for the broad objective for this plan.
 
-Then gather some sensible context.
+Then gather some sensible context accordingly.
 
 # Interview
 
@@ -20,36 +25,44 @@ When you have enough information, ALWAYS ask this last question:
 "I think I have enough information. Is there anything else you think I should know?"
 If new information arise from this question, enter again the interviewing loop.
 
-When the interview is ended, create or overwrite a detailed summary of everything has been decided about the objective of the plan in:
-.py/plans/$1/INTERVIEW.md 
+When the interview is ended, create or overwrite a detailed summary of 
+everything has been decided about the objective of the plan in INTERVIEW.md.
 
-Only write the final decisions, it's not important to record anytime somebody changed it's mind, it's important to capture what has been actually decided in the end.
-Record everything that is useful to convey the objective and the details that have been discovered in the interview. THIS IS YOUR ONLY TIME TO SAVE INFORMATION, THEN ALL IS LOST.
+Only write the final decisions:
+- it's not important to record anytime somebody changed it's mind;
+- it's important to capture what has been actually decided in the end.
+
+Record EVERYTHING that is useful to convey the objective and the details that have been discovered in the interview. 
 
 Then do git commit (for INTERVIEW.md file).
 
 # Plan
 
-Then, create a detailed plan out of this interview, with care to create MICRO steps that are easy and address a single concern for what is possible.
-The plan should be divided in phases, each made of steps (if the plan is too easy to split, just do one phase).
-The plan MUST include (even if not mentioned in interview) final steps that verify compilation and correct test results.
-Write the plan in:
-.py/plans/$1/PLAN.md 
+Then, create a detailed plan out of this interview:
+- create MICRO steps that are easy and address a single concern for what is possible;
+- divide the plan in phases, each made of steps (if the plan is too easy to split, just do one phase);
+- DO include (even if not mentioned in interview) final steps that verify compilation and correct test results.
 
-Then do git commit (for PLAN.md file).
+If the planning runs into some serious trouble that you feel you cannot solve, 
+in this case ONLY you are allowed to ask the user to help solving the issue. 
+If that happens, update INTERVIEW.md as well with new findings and then try again planning.
+
+When the plan in good, then write it into PLAN.md.
+
+Then do git commit (for PLAN.md and / or INTERVIEW.md file).
 
 # Review
 
-Then, review the plan, looking for errors, problems, missing parts, inconsistencies, discrepancies with the interview, missing points from the interview.
-If the plan has some problems that you can solve independenly, update INTERVIEW.md and / or PLAN.md accordingly, and do git commit.
-It the plan has problems that need user attention, do another round of interview with the user, then plan again, then review again.
-
-If the plan has been changed, do git commit (for INTERVIEW.md and PLAN.md files).
+Then, review the plan, looking for errors, problems, missing parts, inconsistencies, discrepancies with the interview, missing points from the interview:
+- if the plan has some problems that you can solve independenly, update INTERVIEW.md and / or PLAN.md accordingly, and do git commit;
+- if the plan has problems that need user attention, do another round of interview with the user, then plan again, then review again;
+- whenever the plan is changed, do git commit (for INTERVIEW.md and PLAN.md files).
 
 # Execution
 
-If you got there then the plan is good, so execute it step by step.
-Do git commit after each step.
+Once you have a good, correct, reviewed plan, then you can execute it:
+- execute the plan step by step;
+- do git commit after each step.
 
 ## Completion criteria
 
