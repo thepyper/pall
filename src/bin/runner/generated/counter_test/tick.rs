@@ -15,16 +15,16 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Initial => {
-            y.state = State::Counting;
+        State::Counting => {
+            y.counter = y.counter + 1i64;
+            if y.counter >= 10i64 {
+            y.state = State::Goal;
+            }
 
         }
 
-        State::Counting => {
-            y.counter = x.counter + 1i64;
-            if x.counter >= 10i64 {
-            y.state = State::Goal;
-            }
+        State::Initial => {
+            y.state = State::Counting;
 
         }
 

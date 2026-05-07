@@ -5,13 +5,13 @@ use crate::machine::{
     Input, Signal, Statement, Timer, UnaryOperator, Value,
 };
 
-use super::super::super::error::CompileError;
+use super::super::super::error::{CompileError, CompileErrorKind};
 
 /// Context passed to code generation helpers for variable naming.
 pub struct CodegenContext {
     /// Variable name for the Persistent struct parameter (e.g. "x").
     pub state_var: String,
-    /// Variable name for the Update struct local (e.g. "y").
+    /// Variable name for the Persistent struct local (e.g. "y").
     pub update_var: String,
 }
 
@@ -21,6 +21,55 @@ impl CodegenContext {
             state_var: state_var.to_string(),
             update_var: update_var.to_string(),
         }
+    }
+}
+
+/// Precalculated field access map for expressions.
+/// Maps field names to their Rust access strings.
+pub struct FieldAccessMap {
+    /// All field access strings: "counter" -> "y.counter", "start" -> "x.start"
+    pub accesses: std::collections::HashMap<String, String>,
+}
+
+impl FieldAccessMap {
+    pub fn new(
+        state_var: &str,
+        update_var: &str,
+        inputs: &std::collections::HashMap<String, crate::machine::Input>,
+        variables: &std::collections::HashMap<String, crate::machine::Variable>,
+        signals: &std::collections::HashMap<String, crate::machine::Signal>,
+        timers: &std::collections::HashMap<String, crate::machine::Timer>,
+        constants: &std::collections::HashMap<String, crate::machine::Constant>,
+    ) -> Self {
+        let mut accesses = std::collections::HashMap::new();
+
+        // State: y.state.as_str() (special: always treated as string)
+        accesses.insert("state".to_string(), format!("{}.state.as_str()", update_var));
+
+        // Inputs: always x.field (read-only, not in y)
+        for (name, _) in inputs {
+            accesses.insert(name.clone(), format!("{}.{}", state_var, safe_ident(name)));
+        }
+
+        // Variables, signals, timers, constants: y.field
+        for (name, _) in variables {
+            accesses.insert(name.clone(), format!("{}.{}", update_var, safe_ident(name)));
+        }
+        for (name, _) in signals {
+            accesses.insert(name.clone(), format!("{}.{}", update_var, safe_ident(name)));
+        }
+        for (name, _) in timers {
+            accesses.insert(name.clone(), format!("{}.{}", update_var, safe_ident(name)));
+        }
+        for (name, _) in constants {
+            accesses.insert(name.clone(), format!("{}.{}", update_var, safe_ident(name)));
+        }
+
+        Self { accesses }
+    }
+
+    pub fn get(&self, name: &str) -> Option<&String> {
+        self.accesses.get(name)
     }
 }
 
@@ -173,6 +222,17 @@ pub fn build_tick_data(
 
     let context = CodegenContext::new(&context.state_var, &context.update_var);
 
+    // Build the precalculated field access map
+    let field_accesses = FieldAccessMap::new(
+        &context.state_var,
+        &context.update_var,
+        &machine.inputs,
+        &machine.variables,
+        &machine.signals,
+        &machine.timers,
+        &machine.constants,
+    );
+
     // Build the match body as a single Rust code string
     let mut match_body = String::new();
 
@@ -183,10 +243,13 @@ pub fn build_tick_data(
         // Execute Actions
         for action in &state.actions {
             let when_code = match &action.when {
-                Some(expr) => match condition_to_rust(expr, &context) {
+                Some(expr) => match condition_to_rust(expr, &field_accesses) {
                     Ok(code) => code,
                     Err(e) => {
-                        errors.push(e);
+                        errors.push(CompileError::new(
+                            CompileErrorKind::InvalidSignalExpr,
+                            e,
+                        ));
                         "false".to_string()
                     }
                 },
@@ -195,9 +258,14 @@ pub fn build_tick_data(
 
             let mut stmts = vec![];
             for stmt in &action.r#do {
-                match stmt_to_rust(stmt, &context) {
+                match stmt_to_rust(stmt, &context, &field_accesses) {
                     Ok(code) => stmts.push(code),
-                    Err(e) => errors.push(e),
+                    Err(e) => {
+                        errors.push(CompileError::new(
+                            CompileErrorKind::InvalidSignalExpr,
+                            e,
+                        ));
+                    }
                 }
             }
 
@@ -217,10 +285,13 @@ pub fn build_tick_data(
         let mut needs_closing = false;
         for (i, trans) in state.transitions.iter().enumerate() {
             let when_code = match &trans.when {
-                Some(expr) => match condition_to_rust(expr, &context) {
+                Some(expr) => match condition_to_rust(expr, &field_accesses) {
                     Ok(code) => code,
                     Err(e) => {
-                        errors.push(e);
+                        errors.push(CompileError::new(
+                            CompileErrorKind::InvalidSignalExpr,
+                            e,
+                        ));
                         "false".to_string()
                     }
                 },
@@ -233,9 +304,14 @@ pub fn build_tick_data(
 
             let mut stmts = vec![];
             for stmt in &trans.r#do {
-                match stmt_to_rust(stmt, &context) {
+                match stmt_to_rust(stmt, &context, &field_accesses) {
                     Ok(code) => stmts.push(code),
-                    Err(e) => errors.push(e),
+                    Err(e) => {
+                        errors.push(CompileError::new(
+                            CompileErrorKind::InvalidSignalExpr,
+                            e,
+                        ));
+                    }
                 }
             }
 
@@ -290,10 +366,13 @@ pub fn build_tick_data(
 
     let mut signals_json = vec![];
     for (name, sig) in &machine.signals {
-        let expr_code = match expr_to_rust(&sig.expr, &context) {
+        let expr_code = match expr_to_rust(&sig.expr, &field_accesses) {
             Ok(code) => code,
             Err(e) => {
-                errors.push(e);
+                errors.push(CompileError::new(
+                    CompileErrorKind::InvalidSignalExpr,
+                    e,
+                ));
                 "0".to_string()
             }
         };
@@ -307,10 +386,13 @@ pub fn build_tick_data(
     let mut timers_json = vec![];
     for (name, timer) in &machine.timers {
         let when_code = match &timer.when {
-            Some(expr) => match expr_to_rust(expr, &context) {
+            Some(expr) => match expr_to_rust(expr, &field_accesses) {
                 Ok(code) => code,
                 Err(e) => {
-                    errors.push(e);
+                    errors.push(CompileError::new(
+                        CompileErrorKind::InvalidSignalExpr,
+                        e,
+                    ));
                     "false".to_string()
                 }
             },
@@ -469,20 +551,23 @@ fn safe_ident(name: &str) -> String {
 
 pub fn expr_to_rust(
     expr: &Expression,
-    ctx: &CodegenContext,
-) -> Result<String, CompileError> {
+    field_accesses: &FieldAccessMap,
+) -> Result<String, String> {
     match expr {
         Expression::Value(v) => Ok(value_to_rust(v)),
         Expression::Reference(r) => {
-            let ident = safe_ident(&r.target);
-            Ok(format!("{}.{}", ctx.state_var, ident))
+            // Look up precalculated access string
+            let access = field_accesses.get(&r.target).ok_or_else(|| {
+                format!("unknown field reference: {}", r.target)
+            })?;
+            Ok(access.clone())
         }
         Expression::Parenthesis(inner) => {
-            let inner_code = expr_to_rust(inner, ctx)?;
+            let inner_code = expr_to_rust(inner, field_accesses)?;
             Ok(format!("({inner_code})"))
         }
         Expression::Unary(op, inner) => {
-            let inner_code = expr_to_rust(inner, ctx)?;
+            let inner_code = expr_to_rust(inner, field_accesses)?;
             let rust_op = match op {
                 UnaryOperator::Negate => "-",
                 UnaryOperator::Not => "!",
@@ -491,8 +576,8 @@ pub fn expr_to_rust(
             Ok(format!("{rust_op}{inner_code}"))
         }
         Expression::Binary(left, op, right) => {
-            let left_code = expr_to_rust(left, ctx)?;
-            let right_code = expr_to_rust(right, ctx)?;
+            let left_code = expr_to_rust(left, field_accesses)?;
+            let right_code = expr_to_rust(right, field_accesses)?;
             let rust_op = match op {
                 BinaryOperator::Add => "+",
                 BinaryOperator::Sub => "-",
@@ -551,50 +636,58 @@ fn value_to_rust(v: &Value) -> String {
 pub fn stmt_to_rust(
     stmt: &FullStatement,
     ctx: &CodegenContext,
-) -> Result<String, CompileError> {
+    field_accesses: &FieldAccessMap,
+) -> Result<String, String> {
     let target = safe_ident(&stmt.statement.target);
+    // Target is always y.field (inputs can't be targets)
+    let target_access = format!("{}.{}", ctx.update_var, target);
     let expr_code = expr_to_rust(
         &stmt.statement.expression,
-        ctx,
-    )?;
+        field_accesses,
+    ).map_err(|e| format!("statement error: {}", e))?;
 
     let op = &stmt.statement.operator;
+    // Get the field access string for the target (always y.field for statement targets)
+    let field_access = field_accesses.get(&stmt.statement.target)
+        .cloned()
+        .unwrap_or_else(|| format!("{}.{}", ctx.update_var, target));
+
     let rust_stmt = match op {
         crate::machine::AssignmentOperator::Assign => {
-            format!("{}.{} = {expr_code};", ctx.update_var, target)
+            format!("{target_access} = {expr_code};")
         }
         crate::machine::AssignmentOperator::AddAssign => {
-            format!("{}.{} = {}.{} + {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} + {expr_code};")
         }
         crate::machine::AssignmentOperator::SubAssign => {
-            format!("{}.{} = {}.{} - {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} - {expr_code};")
         }
         crate::machine::AssignmentOperator::MulAssign => {
-            format!("{}.{} = {}.{} * {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} * {expr_code};")
         }
         crate::machine::AssignmentOperator::DivAssign => {
-            format!("{}.{} = {}.{} / {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} / {expr_code};")
         }
         crate::machine::AssignmentOperator::ModAssign => {
-            format!("{}.{} = {}.{} % {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} % {expr_code};")
         }
         crate::machine::AssignmentOperator::AndAssign => {
-            format!("{}.{} = {}.{} & {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} & {expr_code};")
         }
         crate::machine::AssignmentOperator::OrAssign => {
-            format!("{}.{} = {}.{} | {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} | {expr_code};")
         }
         crate::machine::AssignmentOperator::XorAssign => {
-            format!("{}.{} = {}.{} ^ {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} ^ {expr_code};")
         }
         crate::machine::AssignmentOperator::LogicalAndAssign => {
-            format!("{}.{} = {}.{} && {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} && {expr_code};")
         }
         crate::machine::AssignmentOperator::LogicalOrAssign => {
-            format!("{}.{} = {}.{} || {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} || {expr_code};")
         }
         crate::machine::AssignmentOperator::LogicalXorAssign => {
-            format!("{}.{} = {}.{} ^^ {expr_code};", ctx.update_var, target, ctx.state_var, target)
+            format!("{target_access} = {field_access} ^^ {expr_code};")
         }
     };
     Ok(rust_stmt)
@@ -694,7 +787,7 @@ fn int_suffix_for_type(t: &crate::machine::Type) -> &'static str {
 /// Returns the raw expression code — truthiness is implicit in Rust.
 pub fn condition_to_rust(
     expr: &FullExpression,
-    ctx: &CodegenContext,
-) -> Result<String, CompileError> {
-    expr_to_rust(&expr.expression, ctx)
+    field_accesses: &FieldAccessMap,
+) -> Result<String, String> {
+    expr_to_rust(&expr.expression, field_accesses)
 }
