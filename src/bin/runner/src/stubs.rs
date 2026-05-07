@@ -51,6 +51,5 @@ pub fn apply_update(state: &mut Persistent, update: &Update) {
     }
     if let Some(s) = update.state {
         state.state = s;
-        state.state_name = s.as_str().to_string();
     }
 }

@@ -12,8 +12,8 @@ use std::convert::TryInto;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Initial,
-    Goal,
     Counting,
+    Goal,
 }
 
 impl State {
@@ -21,8 +21,8 @@ impl State {
     pub const fn as_str(&self) -> &'static str {
         match self {
             State::Initial => "initial",
-            State::Goal => "goal",
             State::Counting => "counting",
+            State::Goal => "goal",
         }
     }
 }
@@ -38,8 +38,8 @@ impl TryFrom<&str> for State {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "initial" => Ok(State::Initial),
-            "goal" => Ok(State::Goal),
             "counting" => Ok(State::Counting),
+            "goal" => Ok(State::Goal),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -59,8 +59,6 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    /// Current state as string (for expression resolution)
-    pub state_name: String,
     pub counter: i64,
 }
 

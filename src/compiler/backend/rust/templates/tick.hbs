@@ -77,7 +77,6 @@ pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Update
 pub fn init() -> Persistent {
     Persistent {
         state: State::{{{initial_variant}}},
-        state_name: "{{initial}}".to_string(),
 {{#each inputs}}
         {{{name}}}: default(),
 {{/each}}

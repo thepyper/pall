@@ -17,9 +17,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
 
         }
 
-        State::Goal => {
-        }
-
         State::Counting => {
                 y.counter = Some(x.counter + 1i64);
 
@@ -28,6 +25,9 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
             return Ok(y);
             }
 
+        }
+
+        State::Goal => {
         }
 
     }
@@ -42,7 +42,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Update, TickError> {
 pub fn init() -> Persistent {
     Persistent {
         state: State::Initial,
-        state_name: "initial".to_string(),
         counter: 0i64,
     }
 }
