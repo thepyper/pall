@@ -13,7 +13,7 @@ The following files will be created in the process:
 
 First ask the user for the broad objective for this plan.
 
-Then gather some sensible context accordingly.
+Then gather the context you need to ask informed questions — stop when you have enough to start the interview.
 
 # Interview
 
@@ -68,7 +68,7 @@ Once you have a good, correct, reviewed plan, then you can execute it:
 
 [ ] INTERVIEW.md has been written with full information captured by the whole Q&A session
 [ ] PLAN.md has been written with a complete, detailed, micro-stepped (single concern per-step) plan ready to be executed to obtain the objective 
-[ ] Plan has been reviewed with positive outcome
-[ ] Plan has been executed completely with positive outcome
+[ ] Plan has been reviewed with no unresolved issues
+[ ] Plan has been executed with all steps completed and all tests passing
 
 IMPORTANT: DO NOT STOP UNTIL ALL COMPLETION CRITERIA HAS BEEN MET!!
