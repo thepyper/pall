@@ -17,3 +17,7 @@ pub use stubs::error;
 
 #[cfg(test)]
 mod tests;
+
+fn main() {
+    println!("Pall Runner — use 'cargo test' to run runner tests.");
+}
