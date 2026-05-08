@@ -54,7 +54,9 @@ mod group {
 //                      group.rs, mod.rs under src/bin/runner/generated/
 
 // ── Re-exports for convenience ──────────────────────────────────────────────
+// Re-exported for use in tests (e.g., use crate::stubs::* in test files)
 
 pub use counter_test_types::Persistent;
 pub use counter_test_types::State;
 pub use counter_test_tick::{init, tick};
+pub use error::TickError;
