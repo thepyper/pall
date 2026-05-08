@@ -119,30 +119,9 @@ fn write_generated_files(files: &FileSet) -> PathBuf {
     output_dir
 }
 
+#[cfg(test)]
+mod tests;
+
 fn main() {
-    println!("=== Pall Creator ===");
-    println!("Building counter_test machine...");
-
-    let machine = build_counter_machine();
-    println!("Machine id: {}", machine.id);
-    println!("States: {}", machine.states.len());
-    println!("Variables: {}", machine.variables.len());
-
-    println!("\nCompiling...");
-    let files = match compile_machine(&machine) {
-        Ok(files) => files,
-        Err(errors) => {
-            eprintln!("Compilation errors:");
-            for err in &errors {
-                eprintln!("  - [{}] {}", err.kind, err.message);
-            }
-            std::process::exit(1);
-        }
-    };
-
-    println!("Generated {} file(s):\n", files.len());
-    let output_dir = write_generated_files(&files);
-
-    println!("\nAll files written to: {}", output_dir.display());
-    println!("=== Creator done ===");
+    println!("Pall Creator — use 'cargo test' to run creator tests.");
 }

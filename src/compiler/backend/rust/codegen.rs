@@ -92,7 +92,7 @@ pub fn build_types_data(
     for (name, var) in &machine.variables {
         let ident = safe_ident(name);
         let default = if let Some(ref init) = var.initial {
-            value_to_literal(init)
+            value_to_literal_typed(init, &var.r#type)
         } else {
             default_value_for_type(&var.r#type)
         };
@@ -190,7 +190,7 @@ pub fn build_tick_data(
     for (name, var) in &machine.variables {
         let ident = safe_ident(name);
         let default_val = if let Some(ref init) = var.initial {
-            value_to_literal(init)
+            value_to_literal_typed(init, &var.r#type)
         } else {
             default_value_for_type(&var.r#type)
         };

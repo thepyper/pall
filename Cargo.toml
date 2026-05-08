@@ -22,3 +22,7 @@ path = "src/bin/creator/src/main.rs"
 [[bin]]
 name = "runner"
 path = "src/bin/runner/src/main.rs"
+
+[[bin]]
+name = "gen-fixture"
+path = "src/bin/gen-fixture.rs"
