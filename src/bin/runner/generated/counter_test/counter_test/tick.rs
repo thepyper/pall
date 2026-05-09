@@ -19,12 +19,12 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Initial => {
-            y.state = State::Counting;
+        State::Goal => {
 
         }
 
-        State::Goal => {
+        State::Initial => {
+            y.state = State::Counting;
 
         }
 

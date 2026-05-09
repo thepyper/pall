@@ -1,34 +1,32 @@
-// Tick implementation for machine: conditional_action
+// Tick implementation for machine: assignment_ops
 // Auto-generated. Do not edit.
 
-use super::conditional_action_types::{Persistent, State};
+use super::assignment_ops_types::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
-/// Execute one tick of machine: conditional_action
+/// Execute one tick of machine: assignment_ops
 pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
     let mut y = x.clone();
 
     match x.state {
-        State::Work => {
-            if y.counter < 5i64 {
-            y.counter = y.counter + 1i64;
-            }
-            if y.counter >= 5i64 {
+        State::Compute => {
+            y.result_add = y.result_add + y.x;
+            y.result_sub = y.result_sub - y.y;
+            y.result_mul = y.result_mul * y.z;
+            y.result_div = y.result_div / y.x;
+            y.result_mod = y.result_mod % y.y;
             y.state = State::Done;
-            } else {
-            y.state = State::Work;
-            }
+
+        }
+
+        State::Start => {
+            y.state = State::Compute;
 
         }
 
         State::Done => {
-
-        }
-
-        State::Setup => {
-            y.state = State::Work;
 
         }
 
@@ -41,10 +39,17 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 }
 
 // ── Init Function ────────────────────────────────────────────────────────────
-/// Create initial x state for machine: conditional_action
+/// Create initial x state for machine: assignment_ops
 pub fn init() -> Persistent {
     Persistent {
-        state: State::Setup,
-        counter: 0i64,
+        state: State::Start,
+        result_mul: 0i64,
+        result_div: 0i64,
+        x: 10i64,
+        result_mod: 0i64,
+        y: 5i64,
+        result_sub: 0i64,
+        result_add: 0i64,
+        z: 2i64,
     }
 }

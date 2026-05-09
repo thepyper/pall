@@ -11,11 +11,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
-        State::Start => {
-            y.state = State::Compute;
-
-        }
-
         State::Compute => {
             y.result_add = y.base + y.adder;
             y.result_sub = y.base - y.adder;
@@ -23,6 +18,11 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
             y.result_div = y.base / y.divisor;
             y.result_mod = y.base % y.divisor;
             y.state = State::Done;
+
+        }
+
+        State::Start => {
+            y.state = State::Compute;
 
         }
 
@@ -43,14 +43,14 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
-        multiplier: 4i64,
-        base: 10i64,
-        result_add: 0i64,
-        divisor: 3i64,
-        result_div: 0i64,
         result_mod: 0i64,
-        adder: 3i64,
+        result_div: 0i64,
+        multiplier: 4i64,
         result_sub: 0i64,
+        base: 10i64,
+        divisor: 3i64,
+        adder: 3i64,
+        result_add: 0i64,
         result_mul: 0i64,
     }
 }

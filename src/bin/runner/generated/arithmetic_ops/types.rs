@@ -9,8 +9,8 @@ use std::convert::TryFrom;
 /// Represents the possible states of machine: arithmetic_ops
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Start,
     Compute,
+    Start,
     Done,
 }
 
@@ -18,8 +18,8 @@ impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Start => "start",
             State::Compute => "compute",
+            State::Start => "start",
             State::Done => "done",
         }
     }
@@ -35,8 +35,8 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "start" => Ok(State::Start),
             "compute" => Ok(State::Compute),
+            "start" => Ok(State::Start),
             "done" => Ok(State::Done),
             _ => Err(format!("unknown state: '{}'", value)),
         }
@@ -57,13 +57,13 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub multiplier: i64,
-    pub base: i64,
-    pub result_add: i64,
-    pub divisor: i64,
-    pub result_div: i64,
     pub result_mod: i64,
-    pub adder: i64,
+    pub result_div: i64,
+    pub multiplier: i64,
     pub result_sub: i64,
+    pub base: i64,
+    pub divisor: i64,
+    pub adder: i64,
+    pub result_add: i64,
     pub result_mul: i64,
 }

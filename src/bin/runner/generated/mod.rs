@@ -10,6 +10,8 @@ pub mod conditional_action_types;
 pub mod conditional_action_tick;
 pub mod arithmetic_ops_types;
 pub mod arithmetic_ops_tick;
+pub mod assignment_ops_types;
+pub mod assignment_ops_tick;
 pub mod group;
 
 pub use counter_test_types::Persistent;
@@ -22,4 +24,6 @@ pub use conditional_action_types::Persistent;
 pub use conditional_action_tick::{tick, init};
 pub use arithmetic_ops_types::Persistent;
 pub use arithmetic_ops_tick::{tick, init};
+pub use assignment_ops_types::Persistent;
+pub use assignment_ops_tick::{tick, init};
 pub use group::{GroupPersistent, group_tick};

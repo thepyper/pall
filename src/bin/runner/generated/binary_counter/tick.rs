@@ -20,13 +20,13 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Counting => {
-            y.count = y.count + 1i64;
-            y.state = State::Idle;
+        State::Done => {
 
         }
 
-        State::Done => {
+        State::Counting => {
+            y.count = y.count + 1i64;
+            y.state = State::Idle;
 
         }
 

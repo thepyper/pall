@@ -1,4 +1,4 @@
-// Types for machine: traffic_light
+// Types for machine: assignment_ops
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
@@ -6,21 +6,21 @@ use std::fmt;
 use std::convert::TryFrom;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
-/// Represents the possible states of machine: traffic_light
+/// Represents the possible states of machine: assignment_ops
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Yellow,
-    Green,
-    Red,
+    Compute,
+    Start,
+    Done,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Yellow => "yellow",
-            State::Green => "green",
-            State::Red => "red",
+            State::Compute => "compute",
+            State::Start => "start",
+            State::Done => "done",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "yellow" => Ok(State::Yellow),
-            "green" => Ok(State::Green),
-            "red" => Ok(State::Red),
+            "compute" => Ok(State::Compute),
+            "start" => Ok(State::Start),
+            "done" => Ok(State::Done),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -52,10 +52,17 @@ impl TryFrom<String> for State {
 
 
 // ── Persistent ───────────────────────────────────────────────────────────────
-/// Holds all persistent state for machine: traffic_light
+/// Holds all persistent state for machine: assignment_ops
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub tick_count: i64,
+    pub result_mul: i64,
+    pub result_div: i64,
+    pub x: i64,
+    pub result_mod: i64,
+    pub y: i64,
+    pub result_sub: i64,
+    pub result_add: i64,
+    pub z: i64,
 }

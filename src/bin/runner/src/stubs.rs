@@ -78,6 +78,16 @@ mod arithmetic_ops_tick {
     include!("../generated/arithmetic_ops/tick.rs");
 }
 
+// ── assignment_ops machine stubs ─────────────────────────────────────────────
+
+mod assignment_ops_types {
+    include!("../generated/assignment_ops/types.rs");
+}
+
+mod assignment_ops_tick {
+    include!("../generated/assignment_ops/tick.rs");
+}
+
 // ── Re-exports for convenience ──────────────────────────────────────────────
 // Counter_test exports (used by counter_test.rs test)
 pub use counter_test_types::Persistent;
@@ -103,6 +113,11 @@ pub use conditional_action_tick::tick as conditional_action_tick;
 pub use arithmetic_ops_types::Persistent as ArithmeticOpsPersistent;
 pub use arithmetic_ops_tick::init as arithmetic_ops_init;
 pub use arithmetic_ops_tick::tick as arithmetic_ops_tick;
+
+// Assignment_ops exports (used by assignment_ops.rs test)
+pub use assignment_ops_types::Persistent as AssignmentOpsPersistent;
+pub use assignment_ops_tick::init as assignment_ops_init;
+pub use assignment_ops_tick::tick as assignment_ops_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;

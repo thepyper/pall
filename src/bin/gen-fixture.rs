@@ -26,6 +26,7 @@ fn main() {
         build_binary_counter(),
         build_conditional_action(),
         build_arithmetic_ops(),
+        build_assignment_ops(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -375,6 +376,68 @@ fn build_arithmetic_ops() -> StateMachine {
 
     StateMachine {
         id: "arithmetic_ops".to_string(),
+        initial: Some("start".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── assignment_ops machine ───────────────────────────────────────────────────
+
+fn build_assignment_ops() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "compute".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let compute_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![
+                FullStatement::parse("result_add += x").unwrap(),
+                FullStatement::parse("result_sub -= y").unwrap(),
+                FullStatement::parse("result_mul *= z").unwrap(),
+                FullStatement::parse("result_div /= x").unwrap(),
+                FullStatement::parse("result_mod %= y").unwrap(),
+            ],
+        }],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("compute".to_string(), compute_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("x".to_string(), variable_i64(10));
+    variables.insert("y".to_string(), variable_i64(5));
+    variables.insert("z".to_string(), variable_i64(2));
+    variables.insert("result_add".to_string(), variable_i64(0));
+    variables.insert("result_sub".to_string(), variable_i64(0));
+    variables.insert("result_mul".to_string(), variable_i64(0));
+    variables.insert("result_div".to_string(), variable_i64(0));
+    variables.insert("result_mod".to_string(), variable_i64(0));
+
+    StateMachine {
+        id: "assignment_ops".to_string(),
         initial: Some("start".to_string()),
         states,
         inputs: HashMap::new(),
