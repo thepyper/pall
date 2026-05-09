@@ -1,30 +1,32 @@
-// Tick implementation for machine: counter_test
+// Tick implementation for machine: binary_counter
 // Auto-generated. Do not edit.
 
-use super::counter_test_types::{Persistent, State};
+use super::binary_counter_types::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
-/// Execute one tick of machine: counter_test
+/// Execute one tick of machine: binary_counter
 pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
     let mut y = x.clone();
 
     match x.state {
-        State::Goal => {
-
-        }
-
-        State::Counting => {
-            y.counter = y.counter + 1i64;
-            if y.counter >= 10i64 {
-            y.state = State::Goal;
+        State::Idle => {
+            if y.count < 4i64 {
+            y.state = State::Counting;
+            } else if y.count >= 4i64 {
+            y.state = State::Done;
             }
 
         }
 
-        State::Initial => {
-            y.state = State::Counting;
+        State::Counting => {
+            y.count = y.count + 1i64;
+            y.state = State::Idle;
+
+        }
+
+        State::Done => {
 
         }
 
@@ -37,10 +39,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 }
 
 // ── Init Function ────────────────────────────────────────────────────────────
-/// Create initial x state for machine: counter_test
+/// Create initial x state for machine: binary_counter
 pub fn init() -> Persistent {
     Persistent {
-        state: State::Initial,
-        counter: 0i64,
+        state: State::Idle,
+        count: 0i64,
     }
 }

@@ -7,19 +7,19 @@ Simple → Complex ordering. One group = one file pair (creator + runner).
 
 ## Group 1: Simple State Transitions
 
-### 1a. traffic_light
+### 1a. traffic_light ✅ COMPLETED
 - **Purpose**: Basic state cycle with named transitions
 - **Features**: 3+ states, always-true transitions, state name checks
 - **States**: red → yellow → green → red (cycle)
 - **Tests**: Reaches "red" state (cycle verified), 3 states visited in order
 
-### 1b. binary_counter
+### 1b. binary_counter ⬜
 - **Purpose**: Counter with binary representation (two bits)
 - **Features**: I64 variable, increment, transition on condition
 - **States**: idle → counting (counter increments, transitions when counter >= 4)
 - **Tests**: Goal reached at counter=4, correct tick count
 
-### 1c. conditional_action
+### 1c. conditional_action ⬜
 - **Purpose**: Actions with `when` conditions
 - **Features**: Action that only executes conditionally, state depends on action outcome
 - **States**: setup → work (action increments when counter < 5) → done

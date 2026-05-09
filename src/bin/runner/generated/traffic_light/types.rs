@@ -9,18 +9,18 @@ use std::convert::TryFrom;
 /// Represents the possible states of machine: traffic_light
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
+    Red,
     Green,
     Yellow,
-    Red,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
+            State::Red => "red",
             State::Green => "green",
             State::Yellow => "yellow",
-            State::Red => "red",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
+            "red" => Ok(State::Red),
             "green" => Ok(State::Green),
             "yellow" => Ok(State::Yellow),
-            "red" => Ok(State::Red),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }

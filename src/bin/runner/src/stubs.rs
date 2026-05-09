@@ -48,6 +48,16 @@ mod traffic_light_tick {
     include!("../generated/traffic_light/tick.rs");
 }
 
+// ── binary_counter machine stubs ─────────────────────────────────────────────
+
+mod binary_counter_types {
+    include!("../generated/binary_counter/types.rs");
+}
+
+mod binary_counter_tick {
+    include!("../generated/binary_counter/tick.rs");
+}
+
 // ── Re-exports for convenience ──────────────────────────────────────────────
 // Counter_test exports (used by counter_test.rs test)
 pub use counter_test_types::Persistent;
@@ -58,6 +68,11 @@ pub use counter_test_tick::{init, tick};
 pub use traffic_light_types::Persistent as TrafficLightPersistent;
 pub use traffic_light_tick::init as traffic_light_init;
 pub use traffic_light_tick::tick as traffic_light_tick_fn;
+
+// Binary_counter exports (used by binary_counter.rs test)
+pub use binary_counter_types::Persistent as BinaryCounterPersistent;
+pub use binary_counter_tick::init as binary_counter_init;
+pub use binary_counter_tick::tick as binary_counter_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;

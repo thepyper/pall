@@ -23,6 +23,7 @@ fn main() {
     let machines = vec![
         build_counter_test(),
         build_traffic_light(),
+        build_binary_counter(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -161,6 +162,75 @@ fn build_traffic_light() -> StateMachine {
     StateMachine {
         id: "traffic_light".to_string(),
         initial: Some("red".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── binary_counter machine ───────────────────────────────────────────────────
+
+fn build_binary_counter() -> StateMachine {
+    let mut states = HashMap::new();
+
+    // Idle state: conditional transitions based on count
+    let idle_state = State {
+        actions: vec![],
+        transitions: vec![
+            Transition {
+                when: Some(FullExpression::parse("count < 4").unwrap()),
+                r#do: vec![],
+                target: "counting".to_string(),
+            },
+            Transition {
+                when: Some(FullExpression::parse("count >= 4").unwrap()),
+                r#do: vec![],
+                target: "done".to_string(),
+            },
+        ],
+    };
+    states.insert("idle".to_string(), idle_state);
+
+    // Counting state: increment count, go back to idle
+    let counting_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![FullStatement::parse("count += 1").unwrap()],
+        }],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "idle".to_string(),
+        }],
+    };
+    states.insert("counting".to_string(), counting_state);
+
+    // Done state: dead end
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert(
+        "count".to_string(),
+        Variable {
+            r#type: Type::I64,
+            initial: Some(Value::Integer(IntegerValue {
+                value: 0,
+                fmt: IntegerFmt::Dec,
+            })),
+            output: false,
+        },
+    );
+
+    StateMachine {
+        id: "binary_counter".to_string(),
+        initial: Some("idle".to_string()),
         states,
         inputs: HashMap::new(),
         signals: HashMap::new(),
