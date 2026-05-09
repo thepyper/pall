@@ -1,4 +1,4 @@
-// Types for machine: counter_test
+// Types for machine: conditional_action
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
@@ -6,21 +6,21 @@ use std::fmt;
 use std::convert::TryFrom;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
-/// Represents the possible states of machine: counter_test
+/// Represents the possible states of machine: conditional_action
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Goal,
-    Initial,
-    Counting,
+    Done,
+    Setup,
+    Work,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Goal => "goal",
-            State::Initial => "initial",
-            State::Counting => "counting",
+            State::Done => "done",
+            State::Setup => "setup",
+            State::Work => "work",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "goal" => Ok(State::Goal),
-            "initial" => Ok(State::Initial),
-            "counting" => Ok(State::Counting),
+            "done" => Ok(State::Done),
+            "setup" => Ok(State::Setup),
+            "work" => Ok(State::Work),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -52,7 +52,7 @@ impl TryFrom<String> for State {
 
 
 // ── Persistent ───────────────────────────────────────────────────────────────
-/// Holds all persistent state for machine: counter_test
+/// Holds all persistent state for machine: conditional_action
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Persistent {
     /// Current state (enum)

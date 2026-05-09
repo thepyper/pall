@@ -1,31 +1,34 @@
-// Tick implementation for machine: traffic_light
+// Tick implementation for machine: conditional_action
 // Auto-generated. Do not edit.
 
-use super::traffic_light_types::{Persistent, State};
+use super::conditional_action_types::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
-/// Execute one tick of machine: traffic_light
+/// Execute one tick of machine: conditional_action
 pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
     let mut y = x.clone();
 
     match x.state {
-        State::Red => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Yellow;
+        State::Done => {
 
         }
 
-        State::Yellow => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Green;
+        State::Setup => {
+            y.state = State::Work;
 
         }
 
-        State::Green => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Red;
+        State::Work => {
+            if y.counter < 5i64 {
+            y.counter = y.counter + 1i64;
+            }
+            if y.counter >= 5i64 {
+            y.state = State::Done;
+            } else {
+            y.state = State::Work;
+            }
 
         }
 
@@ -38,10 +41,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 }
 
 // ── Init Function ────────────────────────────────────────────────────────────
-/// Create initial x state for machine: traffic_light
+/// Create initial x state for machine: conditional_action
 pub fn init() -> Persistent {
     Persistent {
-        state: State::Red,
-        tick_count: 0i64,
+        state: State::Setup,
+        counter: 0i64,
     }
 }

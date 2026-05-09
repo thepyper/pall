@@ -24,6 +24,7 @@ fn main() {
         build_counter_test(),
         build_traffic_light(),
         build_binary_counter(),
+        build_conditional_action(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -231,6 +232,75 @@ fn build_binary_counter() -> StateMachine {
     StateMachine {
         id: "binary_counter".to_string(),
         initial: Some("idle".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── conditional_action machine ───────────────────────────────────────────────
+
+fn build_conditional_action() -> StateMachine {
+    let mut states = HashMap::new();
+
+    // Setup: always → work
+    let setup_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "work".to_string(),
+        }],
+    };
+    states.insert("setup".to_string(), setup_state);
+
+    // Work: conditional action (counter < 5), then transition
+    let work_state = State {
+        actions: vec![Action {
+            when: Some(FullExpression::parse("counter < 5").unwrap()),
+            r#do: vec![FullStatement::parse("counter += 1").unwrap()],
+        }],
+        transitions: vec![
+            Transition {
+                when: Some(FullExpression::parse("counter >= 5").unwrap()),
+                r#do: vec![],
+                target: "done".to_string(),
+            },
+            Transition {
+                when: None,
+                r#do: vec![],
+                target: "work".to_string(),
+            },
+        ],
+    };
+    states.insert("work".to_string(), work_state);
+
+    // Done: dead end
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert(
+        "counter".to_string(),
+        Variable {
+            r#type: Type::I64,
+            initial: Some(Value::Integer(IntegerValue {
+                value: 0,
+                fmt: IntegerFmt::Dec,
+            })),
+            output: false,
+        },
+    );
+
+    StateMachine {
+        id: "conditional_action".to_string(),
+        initial: Some("setup".to_string()),
         states,
         inputs: HashMap::new(),
         signals: HashMap::new(),

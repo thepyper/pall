@@ -58,6 +58,16 @@ mod binary_counter_tick {
     include!("../generated/binary_counter/tick.rs");
 }
 
+// ── conditional_action machine stubs ─────────────────────────────────────────
+
+mod conditional_action_types {
+    include!("../generated/conditional_action/types.rs");
+}
+
+mod conditional_action_tick {
+    include!("../generated/conditional_action/tick.rs");
+}
+
 // ── Re-exports for convenience ──────────────────────────────────────────────
 // Counter_test exports (used by counter_test.rs test)
 pub use counter_test_types::Persistent;
@@ -73,6 +83,11 @@ pub use traffic_light_tick::tick as traffic_light_tick_fn;
 pub use binary_counter_types::Persistent as BinaryCounterPersistent;
 pub use binary_counter_tick::init as binary_counter_init;
 pub use binary_counter_tick::tick as binary_counter_tick;
+
+// Conditional_action exports (used by conditional_action.rs test)
+pub use conditional_action_types::Persistent as ConditionalActionPersistent;
+pub use conditional_action_tick::init as conditional_action_init;
+pub use conditional_action_tick::tick as conditional_action_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;
