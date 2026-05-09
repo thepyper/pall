@@ -1,4 +1,4 @@
-// Types for machine: traffic_light
+// Types for machine: arithmetic_ops
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
@@ -6,21 +6,21 @@ use std::fmt;
 use std::convert::TryFrom;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
-/// Represents the possible states of machine: traffic_light
+/// Represents the possible states of machine: arithmetic_ops
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Green,
-    Red,
-    Yellow,
+    Start,
+    Compute,
+    Done,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Green => "green",
-            State::Red => "red",
-            State::Yellow => "yellow",
+            State::Start => "start",
+            State::Compute => "compute",
+            State::Done => "done",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "green" => Ok(State::Green),
-            "red" => Ok(State::Red),
-            "yellow" => Ok(State::Yellow),
+            "start" => Ok(State::Start),
+            "compute" => Ok(State::Compute),
+            "done" => Ok(State::Done),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -52,10 +52,18 @@ impl TryFrom<String> for State {
 
 
 // ── Persistent ───────────────────────────────────────────────────────────────
-/// Holds all persistent state for machine: traffic_light
+/// Holds all persistent state for machine: arithmetic_ops
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub tick_count: i64,
+    pub multiplier: i64,
+    pub base: i64,
+    pub result_add: i64,
+    pub divisor: i64,
+    pub result_div: i64,
+    pub result_mod: i64,
+    pub adder: i64,
+    pub result_sub: i64,
+    pub result_mul: i64,
 }

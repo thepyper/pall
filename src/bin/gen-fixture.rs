@@ -25,6 +25,7 @@ fn main() {
         build_traffic_light(),
         build_binary_counter(),
         build_conditional_action(),
+        build_arithmetic_ops(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -301,6 +302,80 @@ fn build_conditional_action() -> StateMachine {
     StateMachine {
         id: "conditional_action".to_string(),
         initial: Some("setup".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── arithmetic_ops machine ───────────────────────────────────────────────────
+
+fn variable_i64(initial: i64) -> Variable {
+    Variable {
+        r#type: Type::I64,
+        initial: Some(Value::Integer(IntegerValue {
+            value: initial,
+            fmt: IntegerFmt::Dec,
+        })),
+        output: false,
+    }
+}
+
+fn build_arithmetic_ops() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "compute".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let compute_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![
+                FullStatement::parse("result_add = base + adder").unwrap(),
+                FullStatement::parse("result_sub = base - adder").unwrap(),
+                FullStatement::parse("result_mul = base * multiplier").unwrap(),
+                FullStatement::parse("result_div = base / divisor").unwrap(),
+                FullStatement::parse("result_mod = base % divisor").unwrap(),
+            ],
+        }],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("compute".to_string(), compute_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("base".to_string(), variable_i64(10));
+    variables.insert("adder".to_string(), variable_i64(3));
+    variables.insert("multiplier".to_string(), variable_i64(4));
+    variables.insert("divisor".to_string(), variable_i64(3));
+    variables.insert("result_add".to_string(), variable_i64(0));
+    variables.insert("result_sub".to_string(), variable_i64(0));
+    variables.insert("result_mul".to_string(), variable_i64(0));
+    variables.insert("result_div".to_string(), variable_i64(0));
+    variables.insert("result_mod".to_string(), variable_i64(0));
+
+    StateMachine {
+        id: "arithmetic_ops".to_string(),
+        initial: Some("start".to_string()),
         states,
         inputs: HashMap::new(),
         signals: HashMap::new(),

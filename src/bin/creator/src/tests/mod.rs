@@ -1,3 +1,4 @@
+mod arithmetic_ops;
 mod binary_counter;
 mod comparison;
 mod conditional_action;

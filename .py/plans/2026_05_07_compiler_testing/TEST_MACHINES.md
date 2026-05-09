@@ -19,11 +19,17 @@ Simple → Complex ordering. One group = one file pair (creator + runner).
 - **States**: idle → counting (counter increments, transitions when counter >= 4)
 - **Tests**: Goal reached at counter=4, correct tick count
 
-### 1c. conditional_action ⬜
+### 1c. conditional_action ✅ COMPLETED
 - **Purpose**: Actions with `when` conditions
 - **Features**: Action that only executes conditionally, state depends on action outcome
 - **States**: setup → work (action increments when counter < 5) → done
 - **Tests**: Counter reaches expected value based on action condition
+
+---
+
+## Group 2: Arithmetic Expressions
+
+### 2a. arithmetic_ops ⬜
 
 ---
 

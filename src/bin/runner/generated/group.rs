@@ -7,10 +7,12 @@ use super::counter_test_types::Persistent;
 use super::traffic_light_types::Persistent;
 use super::binary_counter_types::Persistent;
 use super::conditional_action_types::Persistent;
+use super::arithmetic_ops_types::Persistent;
 use super::counter_test_tick::tick;
 use super::traffic_light_tick::tick;
 use super::binary_counter_tick::tick;
 use super::conditional_action_tick::tick;
+use super::arithmetic_ops_tick::tick;
 use super::TickInfo;
 use super::error::TickError;
 
@@ -22,6 +24,7 @@ pub struct GroupPersistent {
     pub traffic_light: Persistent,
     pub binary_counter: Persistent,
     pub conditional_action: Persistent,
+    pub arithmetic_ops: Persistent,
 }
 
 // ── Group Tick Function ────────────────────────────────────────────────────
@@ -41,6 +44,8 @@ pub fn group_tick(
     ys.binary_counter = tick(&ys.binary_counter, tick_info)?;
 
     ys.conditional_action = tick(&ys.conditional_action, tick_info)?;
+
+    ys.arithmetic_ops = tick(&ys.arithmetic_ops, tick_info)?;
 
     Ok(ys)
 }
