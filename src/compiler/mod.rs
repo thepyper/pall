@@ -1,5 +1,8 @@
 pub mod error;
 pub mod validation;
+pub mod typecheck_rules;
+pub mod typecheck;
+pub mod type_validation;
 pub mod backend;
 
 pub use backend::rust::RustBackend;
