@@ -7,7 +7,13 @@
 - `is_cast_lossless(from: Type, to: Type) -> bool`
 - `get_target_bits(target_type: Type) -> u32` — ritorna il bit count per ordinamento
 - `is_unsigned(target_type: Type) -> bool`
-- `find_common_type(from: Type, to: Type) -> Option<Type>` — usa algoritmo intersezione
+- `is_numeric_type(ty: Type) -> bool`
+- `is_integer_type(ty: Type) -> bool` — solo interi (U/I/F8-64, non Bool/String)
+- `is_bool_type(ty: Type) -> bool`
+- `is_truthy_type(ty: Type) -> bool` — Bool + tutti i numeric
+- `is_numeric_cast_allowed(from: Type, to: Type) -> bool` — include float restrictions (i16→f32, i32→f64, etc.)
+- `find_common_type(from: Type, to: Type, operator: Option<BinaryOperator>) -> Option<Type>` — usa algoritmo intersezione, tiene conto del tipo di operatore
+- `is_truthy_expression(expr: &Expression) -> bool` — ricorsivo: Bool literal, numeric literal, reference (se tipo è numeric/Bool), comparison result, parenthesized
 
 ### Step 1.2 — Creare `src/compiler/typecheck.rs`
 - Definire `ExpressionId` (alias di `usize`)
@@ -24,91 +30,146 @@
 
 ### Step 1.3 — Implementare `infer()` per le espressioni base
 - `Expression::Value(v)` → inferisce il tipo dal valore (Integer→i64/u64, Float→f64, Bool→Bool, String→String)
-- `Expression::Reference(r)` → tipo non ancora noto (risolto in fase di binding)
+  - Integer: se il valore cabe in i64 (±2^63-1) → i64, altrimenti u64
+- `Expression::Reference(r, scope)` → cerca il tipo nello scope (variables, inputs, signals, timers, constants)
 - `Expression::Parenthesis(inner)` → ritorna il tipo del sotto-espressione
-- `Expression::Unary(op, operand)` → controlla le regole dell'operatore e inferisce il tipo risultato
+- `Expression::Unary(op, operand)` → controlla le regole dell'operatore e inferisce il tipo risultato:
+  - `Negate`: operand deve essere signed numeric, risultato è common_type con i64
+  - `Not`: operand deve essere truthy, risultato è Bool
+  - `BitNot`: operand deve essere integer, risultato è stesso tipo
 
 ### Step 1.4 — Implementare `infer()` per le espressioni binarie
-- Per ogni operando, richiama `infer()` ricorsivamente
-- Ottenuti i due tipi, cerca il `common_type` tramite `find_common_type()`
-- Se trovato, lo memorizza per l'espressione padre
+- Per ogni operando, richiama `infer()` ricorsivamente ottenendo `(left_id, left_type)` e `(right_id, right_type)`
+- Classificare l'operatore:
+  - **Arithmetic** (`+`, `-`, `*`, `/`, `%`): entrambi operandi devono essere numeric; `find_common_type` per trovare il target
+  - **Bitwise** (`&`, `|`, `^`): entrambi operandi devono essere integer (non float); `find_common_type` per trovare il target
+  - **Logical** (`&&`, `||`, `^^`): entrambi operandi devono essere truthy (Bool o numeric); risultato è Bool, nessun common_type necessario
+  - **Comparison** (`==`, `!=`): operandi possono essere qualsiasi tipo; se diversi, `find_common_type` per trovare il target; risultato è Bool
+  - **Ordering** (`<`, `<=`, `>`, `>=`): entrambi operandi devono essere numeric; `find_common_type` per trovare il target; risultato è Bool
+- Se trovato, memorizzare il tipo per l'espressione padre
 - Se non trovato → errore di validazione (tipo incompatibile)
 
-### Step 1.5 — Gestire i tipi dei riferimenti (variables, inputs, etc.)
-- Creare `VariableScope` che mappa nome → Type
+### Step 1.5 — Creare `VariableScope` e integrare con l'inferenza
+- `VariableScope` struct che mappa nome → Type
 - Popolarlo dai campi della StateMachine (variabili, inputs, signals, timers, constants)
-- `Expression::Reference(r)` cerca il tipo nello scope
+- `TypeChecker::new(scope: VariableScope)` — il TypeChecker riceve lo scope
+- `Expression::Reference(r)` cerca il tipo nello scope, se non trovato → errore
 
-### Step 1.6 — Integrare nel `src/compiler/mod.rs`
-- Esportare `typecheck` e `typecheck_rules`
-- Creare `fn infer_all(machines: &[StateMachine]) -> Result<Vec<TypeEnv>, Vec<CompileError>>`
-- Per ogni macchina: inferire i tipi di tutte le sue espressioni
+### Step 1.6 — Creare `infer_all()` e integrare in `mod.rs`
+- `infer_all(machines: &[StateMachine]) -> Result<Vec<(TypeEnv, Vec<CompileError>)>, String>`
+- Per ogni macchina:
+  1. Costruire il VariableScope dal machine (variables, inputs, signals, timers, constants)
+  2. Creare TypeChecker con lo scope
+  3. Inferire i tipi di tutte le espressioni (transitions, actions, signals, timers)
+  4. Restituire (TypeEnv, errors) per quella macchina
+- In `mod.rs`: esportare `typecheck` e `typecheck_rules`
+- Esportare `infer_all` come entry point pubblico
 
 ## Fase 2: Integrazione con Validation
 
-### Step 2.1 — Aggiornare `validation.rs` per accettare TypeEnv
-- Modificare `validate_machines` per prendere un parametro opzionale `&[TypeEnv]`
-- Se TypeEnv è presente, eseguire controlli di tipo aggiuntivi
+### Step 2.1 — Creare `src/compiler/type_validation.rs`
+- Nuovo file separato per i controlli di validazione di tipo
+- `fn validate_types(machines: &[StateMachine], type_envs: &[TypeEnv]) -> Vec<CompileError>`
+- Funzione che prende TypeEnv per ogni macchina e restituisce errori
 
-### Step 2.2 — Aggiungere controlli di validazione di tipo
-- **Binary ops**: verificare che gli operandi abbiano tipo numerico appropriato (es. nessun + su Bool)
-- **Assignment ops**: verificare che il tipo dell'espressione sia castabile lossless nel tipo della variabile target
-- **When conditions**: verificare che l'espressione sia risolvibile a booleano
-- **Timer when**: stesso controllo (risoluzione a booleano)
+### Step 2.2 — Validazione assegnazioni
+- Per ogni statement `target = expr` nel machine:
+  - Cercare il tipo di `expr` nel TypeEnv (usando ExpressionId)
+  - Verificare che `is_cast_lossless(expr_type, target_type)` sia true
+  - Se falso → errore: "cannot assign {expr_type} to {target_type}"
+- Eccezione: literal può castare a numerico più grande (già coperto da is_cast_lossless)
 
-### Step 2.3 — Gestire la risoluzione a booleano (C++-style truthiness)
-- `is_truthy_type(ty: Type) -> bool` — ritorna true per Bool e tutti i tipi numerici
-- `is_bool_type(ty: Type) -> bool` — ritorna true solo per Bool
-- Per `&&`, `||`, `^^`: entrambi gli operandi devono essere risolvibili a booleano
-- Per `==`, `!=`: entrambi gli operandi devono essere dello stesso tipo o castabili a common type
-- Per `<`, `<=`, `>`, `>=`: solo tipi numerici, con casting congiunto
+### Step 2.3 — Validazione when conditions (transitions + actions)
+- Per ogni `when` expression:
+  - Cercare il tipo nel TypeEnv
+  - Verificare `is_truthy_type(type)` — ritorna true per Bool e tutti i numeric
+  - Se falso → errore: "when condition must be truthy, got {type}"
+- Nota: truthiness è C++-style (0=false, non-zero=true)
+
+### Step 2.4 — Validazione timer when
+- Stessa logica di Step 2.3 (risoluzione a booleano)
+
+### Step 2.5 — Validazione operator-type compatibility
+- **Arithmetic** (`+`, `-`, `*`, `/`, `%`): entrambi operandi devono essere numeric
+- **Bitwise** (`&`, `|`, `^`): entrambi operandi devono essere integer (non Bool, non float)
+- **Logical** (`&&`, `||`, `^^`): entrambi operandi devono essere truthy
+- **Comparison** (`==`, `!=`): entrambi operandi devono essere dello stesso tipo o castabili
+- **Ordering** (`<`, `<=`, `>`, `>=`): entrambi operandi devono essere numeric
+
+### Step 2.6 — Aggiornare `validation.rs` principale
+- Chiamare `validate_types()` dal nuovo modulo
+- Integrare gli errori nella risposta esistente di `validate_machines()`
 
 ## Fase 3: Codegen Updates
 
-### Step 3.1 — Aggiornare `expr_to_rust` per usare TypeEnv
-- Modificare la firma per accettare `&TypeEnv` come parametro aggiuntivo
-- Per ogni nodo dell'espressione, ottenere il tipo dal TypeEnv (se disponibile)
-- Se il tipo del sotto-espressione non corrisponde al tipo atteso → generare cast Rust
+### Step 3.1 — Modificare `expr_to_rust` per accettare TypeEnv
+- Aggiungere parametro `type_env: Option<&TypeEnv>` alla firma
+- Creare helper `get_expr_type(id: ExpressionId, type_env: &TypeEnv) -> Type` per recuperare il tipo
 
-### Step 3.2 — Generare cast Rust dove necessario
-- Per un'operazione binaria, se gli operandi richiedono un common_type diverso dal loro tipo effettivo:
-  - `(left_expr as target_type)` per il sinistro
-  - `(right_expr as target_type)` per il destro
-- Esempio: `u8 + u16` → `(expr1 as u16) + expr2`
+### Step 3.2 — Generare cast per operazioni binarie
+- Per `Expression::Binary(left, op, right)`:
+  - Ottenere i tipi dei sotto-espressioni dal TypeEnv
+  - Calcolare il common_type necessario
+  - Se left_type ≠ common_type → generare `(left_code as rust_type(common_type))`
+  - Se right_type ≠ common_type → generare `(right_code as rust_type(common_type))`
+  - Esempio: `u8 + u16` → `(x as u16) + y` (u8 castato a u16)
+  - Esempio: `i8 + u16` → `(x as i32) + (y as i32)` (entrambi castati a i32)
 
-### Step 3.3 — Gestire i literal nel codegen
-- Se il literal ha tipo `i64` ma il target è `u8`: non serve cast (il compilatore Rust lo gestisce)
-- Se il literal ha tipo `u64` ma il target è `i64`: errore (ma questo è già catturato in validation)
-- Se il literal ha tipo `f64` ma il target è `f32`: generare `(expr as f32)`
+### Step 3.3 — Generare cast per unari
+- `Negate`: se operand è unsigned → errore (ma già catturato in validation)
+- `BitNot`: se operand non è integer → errore (ma già catturato in validation)
+- `Not`: operand può essere truthy, nessun cast necessario (truthiness è implicita in Rust)
 
-### Step 3.4 — Gestire le assegnazioni nel codegen
+### Step 3.4 — Generare cast per assegnazioni
 - Se il tipo dell'espressione differisce dal tipo della variabile target:
-  - Generare `(expr as target_type)` solo se il cast è lossless (già verificato in validation)
+  - Generare `(expr_code as rust_type(target_type))`
+  - Esempio: `counter: U8, counter = x + 1` dove `x: U16` → `y.counter = ((x + 1) as u8)`
+
+### Step 3.5 — Gestire i literal nel codegen
+- I literal mantengono il loro tipo (i64/u64/f64)
+- Se il tipo del literal non matcha il contesto → generare cast
+- Esempio: `x: U8, x = 1000` → `y.x = (1000i64 as u8)` (ma questo è lossy → errore in validation)
+
+### Step 3.6 — Integrare TypeEnv nel build_tick_data
+- Modificare `build_tick_data` per accettare e passare TypeEnv a `expr_to_rust`
+- Stessa modifica per `condition_to_rust`
+
+### Step 3.7 — Generazione dei cast in Rust
+- Usare `(expr as target_type)` per cast numerici
+- I cast Bool→numeric e numeric→Bool non sono necessari in Rust (truthiness è implicita)
+- Esempio: `Bool as u8` → Rust non supporta direttamente, ma in Pall questo cast non è usato
 
 ## Fase 4: Testing
 
-### Step 4.1 — Creare test per `typecheck_rules.rs`
-- Test `is_cast_lossless` per tutte le coppie (permesso/interdetto)
-- Test `find_common_type` per tutte le combinazioni rilevanti
-- Test casi limite: u8+u16, i8+u16, u32+i32, bool+numerico
+### Step 4.1 — Test unitari per `typecheck_rules.rs`
+- `test_is_cast_lossless` — tutte le coppie (permesso/interdetto) con assert
+- `test_find_common_type` — u8+u16→u16, i8+u16→i32, u32+i32→u32, u8+f64→f64
+- `test_is_truthy_type` — Bool✓, numeric✓, String✗
+- `test_is_integer_type` — U/I*✓, F*✗, Bool✗, String✗
+- `test_numeric_cast_restrictions` — i16→f32✓, i32→f64✓, i64→f64✗
 
-### Step 4.2 — Creare test per `typecheck.rs`
-- Test inferenza su espressioni semplici
-- Test inferenza su espressioni complesse (nested operations)
-- Test errore su operazioni invalid
+### Step 4.2 — Test unitari per `typecheck.rs`
+- `test_infer_value_types` — Integer→i64/u64, Float→f64, Bool→Bool
+- `test_infer_reference` — reference a variabile numerica → numeric type
+- `test_infer_unary` — `-5`→i64, `!true`→Bool, `~5`→i64
+- `test_infer_binary` — `1+2`→i64, `1u+2`→u16, `true||false`→Bool
+- `test_infer_error` — `true + 5`→error, `true && 5`→no error (truthy)
+- `test_expression_id_uniqueness` — due espressioni con stessa stringa → ID diversi
 
-### Step 4.3 — Creare test per l'integrazione completa
-- Test end-to-end: YAML → type inference → validation → codegen
-- Test errori di validazione (tipo incompatibile)
-- Test casting corretto nel codice generato
+### Step 4.3 — Test di integrazione per `type_validation.rs`
+- `test_assignment_type_check` — `u8 = u16`→error, `u16 = u8`→ok
+- `test_when_truthiness` — `when: counter > 5`→ok, `when: "hello"`→error
+- `test_operator_type_compat` — `+` su numeric→ok, `+` su Bool→error
+- `test_full_validation_flow` — macchine valide passano, macchine invalid falliscono
 
-### Step 4.4 — Creare test nel framework esistente (creator + runner)
-- Creare una macchina di test `type_casting.rs` che copre:
-  - Casting implicito in espressioni binarie
-  - Errori di tipo invalidi
-  - Casting signed/unsigned
-  - Truthiness
-  - Literal diversi
+### Step 4.4 — Test end-to-end con macchina di test
+- Creare `src/bin/creator/src/tests/type_casting.rs` e `src/bin/runner/src/tests/type_casting.rs`
+- Coprire:
+  - Casting implicito: `counter: U8, counter = a + b` dove `a:U16, b:U8`
+  - Casting signed/unsigned: `i + u` → common type
+  - Errori di tipo: `true + 5`, `i8 = u16` (non cab)
+  - Truthiness: `when: counter > 0` (numeric→bool resolution)
+  - Literal diversi: `x: U64, x = 123` (i64 literal → u64 var)
 
 ## Fase 5: Verifica Finale
 
