@@ -4,6 +4,7 @@ mod binary_counter;
 mod comparison;
 mod conditional_action;
 mod counter_test;
+mod bitwise_ops;
+mod expression_precedence;
 mod logic_ops;
 mod traffic_light;
-mod bitwise_ops;

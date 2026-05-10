@@ -1,31 +1,30 @@
-// Tick implementation for machine: traffic_light
+// Tick implementation for machine: expression_precedence
 // Auto-generated. Do not edit.
 
-use super::traffic_light_types::{Persistent, State};
+use super::expression_precedence_types::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
-/// Execute one tick of machine: traffic_light
+/// Execute one tick of machine: expression_precedence
 pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
     let mut y = x.clone();
 
     match x.state {
-        State::Yellow => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Green;
+        State::Done => {
 
         }
 
-        State::Green => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Red;
+        State::Start => {
+            y.state = State::Compute;
 
         }
 
-        State::Red => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Yellow;
+        State::Compute => {
+            y.result_precedence = y.a + y.b * y.c;
+            y.result_parens = (y.a + y.b) * y.c;
+            y.result_mixed = y.a * y.b + y.c * y.a;
+            y.state = State::Done;
 
         }
 
@@ -38,10 +37,15 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 }
 
 // ── Init Function ────────────────────────────────────────────────────────────
-/// Create initial x state for machine: traffic_light
+/// Create initial x state for machine: expression_precedence
 pub fn init() -> Persistent {
     Persistent {
-        state: State::Red,
-        tick_count: 0i64,
+        state: State::Start,
+        c: 5i64,
+        result_mixed: 0i64,
+        a: 3i64,
+        b: 4i64,
+        result_precedence: 0i64,
+        result_parens: 0i64,
     }
 }

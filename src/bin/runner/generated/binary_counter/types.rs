@@ -9,18 +9,18 @@ use std::convert::TryFrom;
 /// Represents the possible states of machine: binary_counter
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
+    Idle,
     Counting,
     Done,
-    Idle,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
+            State::Idle => "idle",
             State::Counting => "counting",
             State::Done => "done",
-            State::Idle => "idle",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
+            "idle" => Ok(State::Idle),
             "counting" => Ok(State::Counting),
             "done" => Ok(State::Done),
-            "idle" => Ok(State::Idle),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }

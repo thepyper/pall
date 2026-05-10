@@ -10,8 +10,8 @@ use std::convert::TryFrom;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Compute,
-    Start,
     Done,
+    Start,
 }
 
 impl State {
@@ -19,8 +19,8 @@ impl State {
     pub const fn as_str(&self) -> &'static str {
         match self {
             State::Compute => "compute",
-            State::Start => "start",
             State::Done => "done",
+            State::Start => "start",
         }
     }
 }
@@ -36,8 +36,8 @@ impl TryFrom<&str> for State {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "compute" => Ok(State::Compute),
-            "start" => Ok(State::Start),
             "done" => Ok(State::Done),
+            "start" => Ok(State::Start),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -57,12 +57,12 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub result_mul: i64,
-    pub result_div: i64,
-    pub y: i64,
-    pub x: i64,
     pub result_sub: i64,
     pub result_add: i64,
-    pub z: i64,
+    pub y: i64,
     pub result_mod: i64,
+    pub result_div: i64,
+    pub z: i64,
+    pub x: i64,
+    pub result_mul: i64,
 }

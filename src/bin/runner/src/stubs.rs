@@ -108,6 +108,16 @@ mod bitwise_ops_tick {
     include!("../generated/bitwise_ops/tick.rs");
 }
 
+// ── expression_precedence machine stubs ──────────────────────────────────────
+
+mod expression_precedence_types {
+    include!("../generated/expression_precedence/types.rs");
+}
+
+mod expression_precedence_tick {
+    include!("../generated/expression_precedence/tick.rs");
+}
+
 // ── Re-exports for convenience ──────────────────────────────────────────────
 // Counter_test exports (used by counter_test.rs test)
 pub use counter_test_types::Persistent;
@@ -148,6 +158,11 @@ pub use logic_ops_tick::tick as logic_ops_tick;
 pub use bitwise_ops_types::Persistent as BitwiseOpsPersistent;
 pub use bitwise_ops_tick::init as bitwise_ops_init;
 pub use bitwise_ops_tick::tick as bitwise_ops_tick;
+
+// Expression_precedence exports (used by expression_precedence.rs test)
+pub use expression_precedence_types::Persistent as ExpressionPrecedencePersistent;
+pub use expression_precedence_tick::init as expression_precedence_init;
+pub use expression_precedence_tick::tick as expression_precedence_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;

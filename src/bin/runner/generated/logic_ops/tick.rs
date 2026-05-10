@@ -16,10 +16,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Done => {
-
-        }
-
         State::Compute => {
             if y.a  &&  y.b {
             y.flag1 = true;
@@ -37,6 +33,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
+        State::Done => {
+
+        }
+
 
     }
 
@@ -50,13 +50,13 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
-        b: false,
-        result_and: false,
-        flag1: false,
-        result_not_a: false,
-        a: true,
-        flag2: false,
         result_or: false,
+        a: true,
+        result_and: false,
+        b: false,
+        result_not_a: false,
+        flag2: false,
+        flag1: false,
         result_xor: false,
     }
 }

@@ -57,13 +57,13 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub result_add: i64,
     pub multiplier: i64,
-    pub divisor: i64,
-    pub result_mul: i64,
     pub base: i64,
-    pub result_div: i64,
-    pub result_sub: i64,
-    pub result_mod: i64,
+    pub divisor: i64,
     pub adder: i64,
+    pub result_sub: i64,
+    pub result_mul: i64,
+    pub result_div: i64,
+    pub result_add: i64,
+    pub result_mod: i64,
 }

@@ -29,6 +29,7 @@ fn main() {
         build_assignment_ops(),
         build_logic_ops(),
         build_bitwise_ops(),
+        build_expression_precedence(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -578,6 +579,64 @@ fn build_bitwise_ops() -> StateMachine {
 
     StateMachine {
         id: "bitwise_ops".to_string(),
+        initial: Some("start".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── expression_precedence machine ────────────────────────────────────────────
+
+fn build_expression_precedence() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "compute".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let compute_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![
+                FullStatement::parse("result_precedence = a + b * c").unwrap(),
+                FullStatement::parse("result_parens = (a + b) * c").unwrap(),
+                FullStatement::parse("result_mixed = a * b + c * a").unwrap(),
+            ],
+        }],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("compute".to_string(), compute_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("a".to_string(), variable_i64(3));
+    variables.insert("b".to_string(), variable_i64(4));
+    variables.insert("c".to_string(), variable_i64(5));
+    variables.insert("result_precedence".to_string(), variable_i64(0));
+    variables.insert("result_parens".to_string(), variable_i64(0));
+    variables.insert("result_mixed".to_string(), variable_i64(0));
+
+    StateMachine {
+        id: "expression_precedence".to_string(),
         initial: Some("start".to_string()),
         states,
         inputs: HashMap::new(),

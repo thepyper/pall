@@ -16,6 +16,8 @@ pub mod logic_ops_types;
 pub mod logic_ops_tick;
 pub mod bitwise_ops_types;
 pub mod bitwise_ops_tick;
+pub mod expression_precedence_types;
+pub mod expression_precedence_tick;
 pub mod group;
 
 pub use counter_test_types::Persistent;
@@ -34,4 +36,6 @@ pub use logic_ops_types::Persistent;
 pub use logic_ops_tick::{tick, init};
 pub use bitwise_ops_types::Persistent;
 pub use bitwise_ops_tick::{tick, init};
+pub use expression_precedence_types::Persistent;
+pub use expression_precedence_tick::{tick, init};
 pub use group::{GroupPersistent, group_tick};
