@@ -28,6 +28,7 @@ fn main() {
         build_arithmetic_ops(),
         build_assignment_ops(),
         build_logic_ops(),
+        build_bitwise_ops(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -518,6 +519,65 @@ fn build_logic_ops() -> StateMachine {
 
     StateMachine {
         id: "logic_ops".to_string(),
+        initial: Some("start".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── bitwise_ops machine ──────────────────────────────────────────────────────
+
+fn build_bitwise_ops() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "compute".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let compute_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![
+                FullStatement::parse("result_and = a & b").unwrap(),
+                FullStatement::parse("result_or = a | b").unwrap(),
+                FullStatement::parse("result_xor = a ^ b").unwrap(),
+                FullStatement::parse("result_not_a = ~a").unwrap(),
+            ],
+        }],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("compute".to_string(), compute_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("a".to_string(), variable_i64(12));
+    variables.insert("b".to_string(), variable_i64(10));
+    variables.insert("result_and".to_string(), variable_i64(0));
+    variables.insert("result_or".to_string(), variable_i64(0));
+    variables.insert("result_xor".to_string(), variable_i64(0));
+    variables.insert("result_not_a".to_string(), variable_i64(0));
+
+    StateMachine {
+        id: "bitwise_ops".to_string(),
         initial: Some("start".to_string()),
         states,
         inputs: HashMap::new(),

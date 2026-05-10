@@ -1,4 +1,4 @@
-// Types for machine: binary_counter
+// Types for machine: bitwise_ops
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
@@ -6,21 +6,21 @@ use std::fmt;
 use std::convert::TryFrom;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
-/// Represents the possible states of machine: binary_counter
+/// Represents the possible states of machine: bitwise_ops
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Counting,
+    Compute,
+    Start,
     Done,
-    Idle,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Counting => "counting",
+            State::Compute => "compute",
+            State::Start => "start",
             State::Done => "done",
-            State::Idle => "idle",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "counting" => Ok(State::Counting),
+            "compute" => Ok(State::Compute),
+            "start" => Ok(State::Start),
             "done" => Ok(State::Done),
-            "idle" => Ok(State::Idle),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -52,10 +52,15 @@ impl TryFrom<String> for State {
 
 
 // ── Persistent ───────────────────────────────────────────────────────────────
-/// Holds all persistent state for machine: binary_counter
+/// Holds all persistent state for machine: bitwise_ops
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub count: i64,
+    pub result_xor: i64,
+    pub result_and: i64,
+    pub result_not_a: i64,
+    pub b: i64,
+    pub result_or: i64,
+    pub a: i64,
 }

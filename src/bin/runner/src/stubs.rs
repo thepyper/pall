@@ -98,6 +98,16 @@ mod logic_ops_tick {
     include!("../generated/logic_ops/tick.rs");
 }
 
+// ── bitwise_ops machine stubs ────────────────────────────────────────────────
+
+mod bitwise_ops_types {
+    include!("../generated/bitwise_ops/types.rs");
+}
+
+mod bitwise_ops_tick {
+    include!("../generated/bitwise_ops/tick.rs");
+}
+
 // ── Re-exports for convenience ──────────────────────────────────────────────
 // Counter_test exports (used by counter_test.rs test)
 pub use counter_test_types::Persistent;
@@ -133,6 +143,11 @@ pub use assignment_ops_tick::tick as assignment_ops_tick;
 pub use logic_ops_types::Persistent as LogicOpsPersistent;
 pub use logic_ops_tick::init as logic_ops_init;
 pub use logic_ops_tick::tick as logic_ops_tick;
+
+// Bitwise_ops exports (used by bitwise_ops.rs test)
+pub use bitwise_ops_types::Persistent as BitwiseOpsPersistent;
+pub use bitwise_ops_tick::init as bitwise_ops_init;
+pub use bitwise_ops_tick::tick as bitwise_ops_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;

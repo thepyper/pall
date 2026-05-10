@@ -15,11 +15,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Setup => {
-            y.state = State::Work;
-
-        }
-
         State::Work => {
             if y.counter < 5i64 {
             y.counter = y.counter + 1i64;
@@ -29,6 +24,11 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
             } else {
             y.state = State::Work;
             }
+
+        }
+
+        State::Setup => {
+            y.state = State::Work;
 
         }
 

@@ -6,3 +6,4 @@ mod conditional_action;
 mod counter_test;
 mod logic_ops;
 mod traffic_light;
+mod bitwise_ops;

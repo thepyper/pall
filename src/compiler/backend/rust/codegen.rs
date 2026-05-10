@@ -571,7 +571,7 @@ pub fn expr_to_rust(
             let rust_op = match op {
                 UnaryOperator::Negate => "-",
                 UnaryOperator::Not => "!",
-                UnaryOperator::BitNot => "~",
+                UnaryOperator::BitNot => "!",
             };
             Ok(format!("{rust_op}{inner_code}"))
         }

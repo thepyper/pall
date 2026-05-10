@@ -10,6 +10,7 @@ use super::conditional_action_types::Persistent;
 use super::arithmetic_ops_types::Persistent;
 use super::assignment_ops_types::Persistent;
 use super::logic_ops_types::Persistent;
+use super::bitwise_ops_types::Persistent;
 use super::counter_test_tick::tick;
 use super::traffic_light_tick::tick;
 use super::binary_counter_tick::tick;
@@ -17,6 +18,7 @@ use super::conditional_action_tick::tick;
 use super::arithmetic_ops_tick::tick;
 use super::assignment_ops_tick::tick;
 use super::logic_ops_tick::tick;
+use super::bitwise_ops_tick::tick;
 use super::TickInfo;
 use super::error::TickError;
 
@@ -31,6 +33,7 @@ pub struct GroupPersistent {
     pub arithmetic_ops: Persistent,
     pub assignment_ops: Persistent,
     pub logic_ops: Persistent,
+    pub bitwise_ops: Persistent,
 }
 
 // ── Group Tick Function ────────────────────────────────────────────────────
@@ -56,6 +59,8 @@ pub fn group_tick(
     ys.assignment_ops = tick(&ys.assignment_ops, tick_info)?;
 
     ys.logic_ops = tick(&ys.logic_ops, tick_info)?;
+
+    ys.bitwise_ops = tick(&ys.bitwise_ops, tick_info)?;
 
     Ok(ys)
 }
