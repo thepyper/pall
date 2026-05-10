@@ -49,7 +49,7 @@ Simple → Complex ordering. One group = one file pair (creator + runner).
 
 ---
 
-## Group 3: Logical and Bitwise Operators
+## Group 3: Logical and Bitwise Operators ✅ COMPLETED
 
 ### 3a. logic_ops
 - **Purpose**: Test logical operators (&&, ||, ^^, !)
