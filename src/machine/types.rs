@@ -53,6 +53,7 @@ pub enum Value {
     Integer(IntegerValue),
     Float(FloatValue),
     String(StringValue),
+    Bool(bool),
 }
 
 impl<'de> Deserialize<'de> for Value {
@@ -98,6 +99,10 @@ impl<'de> Deserialize<'de> for Value {
                     value: v.to_string(),
                     fmt: StringFmt::DoubleQuote,
                 }))
+            }
+
+            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E> {
+                Ok(Value::Bool(v))
             }
 
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -152,6 +157,13 @@ impl<'de> Deserialize<'de> for Value {
                                 value: v.to_string(),
                                 fmt: StringFmt::DoubleQuote,
                             }))
+                        }
+                        "Bool" => {
+                            let v = inner
+                                .get("value")
+                                .and_then(|vv| vv.as_bool())
+                                .ok_or_else(|| de::Error::custom("Bool value missing"))?;
+                            Ok(Value::Bool(v))
                         }
                         _ => Err(de::Error::custom(format!(
                             "unknown Value tag: '{}'",

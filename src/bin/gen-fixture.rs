@@ -27,6 +27,7 @@ fn main() {
         build_conditional_action(),
         build_arithmetic_ops(),
         build_assignment_ops(),
+        build_logic_ops(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -438,6 +439,85 @@ fn build_assignment_ops() -> StateMachine {
 
     StateMachine {
         id: "assignment_ops".to_string(),
+        initial: Some("start".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+// ── logic_ops machine ────────────────────────────────────────────────────────
+
+fn variable_bool(initial: bool) -> Variable {
+    Variable {
+        r#type: Type::Bool,
+        initial: Some(Value::Bool(initial)),
+        output: false,
+    }
+}
+
+fn build_logic_ops() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "compute".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let compute_state = State {
+        actions: vec![
+            Action {
+                when: Some(FullExpression::parse("a && b").unwrap()),
+                r#do: vec![FullStatement::parse("flag1 = true").unwrap()],
+            },
+            Action {
+                when: Some(FullExpression::parse("a || b").unwrap()),
+                r#do: vec![FullStatement::parse("flag2 = true").unwrap()],
+            },
+            Action {
+                when: Some(FullExpression::parse("a ^^ b").unwrap()),
+                r#do: vec![
+                    FullStatement::parse("result_and = a && b").unwrap(),
+                    FullStatement::parse("result_or = a || b").unwrap(),
+                    FullStatement::parse("result_xor = a ^^ b").unwrap(),
+                    FullStatement::parse("result_not_a = !a").unwrap(),
+                ],
+            },
+        ],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("compute".to_string(), compute_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("a".to_string(), variable_bool(true));
+    variables.insert("b".to_string(), variable_bool(false));
+    variables.insert("flag1".to_string(), variable_bool(false));
+    variables.insert("flag2".to_string(), variable_bool(false));
+    variables.insert("result_and".to_string(), variable_bool(false));
+    variables.insert("result_or".to_string(), variable_bool(false));
+    variables.insert("result_xor".to_string(), variable_bool(false));
+    variables.insert("result_not_a".to_string(), variable_bool(false));
+
+    StateMachine {
+        id: "logic_ops".to_string(),
         initial: Some("start".to_string()),
         states,
         inputs: HashMap::new(),

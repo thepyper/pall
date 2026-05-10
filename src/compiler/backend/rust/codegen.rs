@@ -592,7 +592,7 @@ pub fn expr_to_rust(
                 BinaryOperator::BitXor => " ^ ",
                 BinaryOperator::LogicalOr => " || ",
                 BinaryOperator::LogicalAnd => " && ",
-                BinaryOperator::LogicalXor => " ^^ ",
+                BinaryOperator::LogicalXor => " ^ ",
                 BinaryOperator::Equal => "==",
                 BinaryOperator::NotEqual => "!=",
                 BinaryOperator::LessThan => "<",
@@ -609,16 +609,14 @@ fn value_to_rust(v: &Value) -> String {
     match v {
         Value::Integer(iv) => format!("{}i64", iv.value),
         Value::Float(fv) => {
-            // Format as a Rust float literal
             let s = format!("{}", fv.value);
             if s.contains('e') || s.contains('E') {
-                s // already scientific
+                s
             } else {
                 format!("{s}.0")
             }
         }
         Value::String(sv) => {
-            // Escape special characters for Rust string literal
             let escaped = sv
                 .value
                 .replace('\\', "\\\\")
@@ -628,6 +626,7 @@ fn value_to_rust(v: &Value) -> String {
                 .replace('\r', "\\r");
             format!("\"{escaped}\"")
         }
+        Value::Bool(b) => format!("{}", b),
     }
 }
 
@@ -687,7 +686,7 @@ pub fn stmt_to_rust(
             format!("{target_access} = {field_access} || {expr_code};")
         }
         crate::machine::AssignmentOperator::LogicalXorAssign => {
-            format!("{target_access} = {field_access} ^^ {expr_code};")
+            format!("{target_access} = {field_access} ^ {expr_code};")
         }
     };
     Ok(rust_stmt)
@@ -734,6 +733,7 @@ pub fn value_to_literal(v: &Value) -> String {
                 .replace('\r', "\\r");
             format!("\"{escaped}\"")
         }
+        Value::Bool(b) => format!("{}", b),
     }
 }
 
@@ -764,6 +764,7 @@ pub fn value_to_literal_typed(v: &Value, target_type: &crate::machine::Type) -> 
                 .replace('\r', "\\r");
             format!("\"{escaped}\"")
         }
+        Value::Bool(b) => format!("{}", b),
     }
 }
 

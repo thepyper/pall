@@ -1,12 +1,12 @@
-// Tick implementation for machine: assignment_ops
+// Tick implementation for machine: logic_ops
 // Auto-generated. Do not edit.
 
-use super::assignment_ops_types::{Persistent, State};
+use super::logic_ops_types::{Persistent, State};
 use super::super::TickInfo;
 use super::super::error::TickError;
 
 // ── Tick Function ────────────────────────────────────────────────────────────
-/// Execute one tick of machine: assignment_ops
+/// Execute one tick of machine: logic_ops
 pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickError> {
     let mut y = x.clone();
 
@@ -21,11 +21,18 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
         }
 
         State::Compute => {
-            y.result_add = y.result_add + y.x;
-            y.result_sub = y.result_sub - y.y;
-            y.result_mul = y.result_mul * y.z;
-            y.result_div = y.result_div / y.x;
-            y.result_mod = y.result_mod % y.y;
+            if y.a  &&  y.b {
+            y.flag1 = true;
+            }
+            if y.a  ||  y.b {
+            y.flag2 = true;
+            }
+            if y.a  ^  y.b {
+            y.result_and = y.a  &&  y.b;
+            y.result_or = y.a  ||  y.b;
+            y.result_xor = y.a  ^  y.b;
+            y.result_not_a = !y.a;
+            }
             y.state = State::Done;
 
         }
@@ -39,17 +46,17 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 }
 
 // ── Init Function ────────────────────────────────────────────────────────────
-/// Create initial x state for machine: assignment_ops
+/// Create initial x state for machine: logic_ops
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
-        result_add: 0i64,
-        y: 5i64,
-        result_sub: 0i64,
-        z: 2i64,
-        result_div: 0i64,
-        result_mod: 0i64,
-        x: 10i64,
-        result_mul: 0i64,
+        flag2: false,
+        result_xor: false,
+        result_not_a: false,
+        a: true,
+        b: false,
+        flag1: false,
+        result_and: false,
+        result_or: false,
     }
 }

@@ -119,6 +119,12 @@ pub(crate) fn expression_from_pair(pair: Pair<Rule>) -> Result<Expression, Parse
             Ok(Expression::Value(Value::String(StringValue { value: unescape_string(inner), fmt: StringFmt::SingleQuote })))
         }
 
+        // Boolean
+        Rule::bool => {
+            let val = pair.as_str().trim() == "true";
+            Ok(Expression::Value(Value::Bool(val)))
+        }
+
         // Identifier → Reference
         Rule::identifier => Ok(Expression::Reference(Reference {
             target: pair.as_str().trim().to_string(),

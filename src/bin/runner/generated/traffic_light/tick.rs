@@ -17,15 +17,15 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Green => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Red;
-
-        }
-
         State::Red => {
             y.tick_count = y.tick_count + 1i64;
             y.state = State::Yellow;
+
+        }
+
+        State::Green => {
+            y.tick_count = y.tick_count + 1i64;
+            y.state = State::Red;
 
         }
 

@@ -14,6 +14,8 @@ _integer_value = _{ hex_integer | oct_integer | bin_integer | dec_integer }
 
 float = { dec_digit+ ~ "." ~ dec_digit+ }
 
+bool = { "true" | "false" }
+
 escape_char = _{ "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "'" | "0" | "b" | "f") }
 string_dq  = { "\"" ~ (escape_char | (!"\"" ~ !"\\" ~ ANY))* ~ "\"" }
 string_sq  = { "'" ~ (escape_char | (!"'" ~ !"\\" ~ ANY))* ~ "'" }
@@ -22,7 +24,8 @@ _string = _{ string_dq | string_sq }
 identifier = { ("_" | alpha) ~ ("_" | alpha | dec_digit)* }
 
 _float = _{ float }
-_value = _{ _float | _integer_value | _string | identifier }
+bool_value = _{ bool }
+_value = _{ _float | _integer_value | _string | bool_value | identifier }
 
 _parenthesis = { "(" ~ expression ~ ")" }
 

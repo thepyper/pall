@@ -1,4 +1,4 @@
-// Types for machine: assignment_ops
+// Types for machine: logic_ops
 // Auto-generated. Do not edit.
 
 use serde::{Serialize, Deserialize};
@@ -6,7 +6,7 @@ use std::fmt;
 use std::convert::TryFrom;
 
 // ── State Enum ───────────────────────────────────────────────────────────────
-/// Represents the possible states of machine: assignment_ops
+/// Represents the possible states of machine: logic_ops
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Start,
@@ -52,17 +52,17 @@ impl TryFrom<String> for State {
 
 
 // ── Persistent ───────────────────────────────────────────────────────────────
-/// Holds all persistent state for machine: assignment_ops
+/// Holds all persistent state for machine: logic_ops
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub result_add: i64,
-    pub y: i64,
-    pub result_sub: i64,
-    pub z: i64,
-    pub result_div: i64,
-    pub result_mod: i64,
-    pub x: i64,
-    pub result_mul: i64,
+    pub flag2: bool,
+    pub result_xor: bool,
+    pub result_not_a: bool,
+    pub a: bool,
+    pub b: bool,
+    pub flag1: bool,
+    pub result_and: bool,
+    pub result_or: bool,
 }
