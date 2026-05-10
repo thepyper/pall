@@ -2,8 +2,11 @@ use std::collections::HashMap;
 
 use crate::machine::{
     Action, BinaryOperator, Constant, Expression, FullExpression, FullStatement,
-    Input, Signal, Statement, Timer, UnaryOperator, Value,
+    Input, Reference, Signal, StateMachine, Statement, Timer, Type, UnaryOperator, Value,
 };
+
+use super::super::super::typecheck::{TypeEnv, VariableScope};
+use super::super::super::typecheck_rules::*;
 
 use super::super::super::error::{CompileError, CompileErrorKind};
 
@@ -166,6 +169,9 @@ pub fn build_tick_data(
     let mut errors = Vec::new();
 
     let initial = machine.initial.clone().unwrap_or_else(|| "initial".to_string());
+    
+    // Build the VariableScope for type inference in codegen
+    let scope = VariableScope::from_machine(machine);
 
     // Build field identifiers for expr_to_rust
     let mut field_list: Vec<String> = Vec::new();
@@ -243,7 +249,7 @@ pub fn build_tick_data(
         // Execute Actions
         for action in &state.actions {
             let when_code = match &action.when {
-                Some(expr) => match condition_to_rust(expr, &field_accesses) {
+                Some(expr) => match condition_to_rust(expr, Some(&scope), &field_accesses) {
                     Ok(code) => code,
                     Err(e) => {
                         errors.push(CompileError::new(
@@ -258,7 +264,7 @@ pub fn build_tick_data(
 
             let mut stmts = vec![];
             for stmt in &action.r#do {
-                match stmt_to_rust(stmt, &context, &field_accesses) {
+                match stmt_to_rust(stmt, &context, Some(&scope), &field_accesses) {
                     Ok(code) => stmts.push(code),
                     Err(e) => {
                         errors.push(CompileError::new(
@@ -285,7 +291,7 @@ pub fn build_tick_data(
         let mut needs_closing = false;
         for (i, trans) in state.transitions.iter().enumerate() {
             let when_code = match &trans.when {
-                Some(expr) => match condition_to_rust(expr, &field_accesses) {
+                Some(expr) => match condition_to_rust(expr, Some(&scope), &field_accesses) {
                     Ok(code) => code,
                     Err(e) => {
                         errors.push(CompileError::new(
@@ -304,7 +310,7 @@ pub fn build_tick_data(
 
             let mut stmts = vec![];
             for stmt in &trans.r#do {
-                match stmt_to_rust(stmt, &context, &field_accesses) {
+                match stmt_to_rust(stmt, &context, Some(&scope), &field_accesses) {
                     Ok(code) => stmts.push(code),
                     Err(e) => {
                         errors.push(CompileError::new(
@@ -366,7 +372,7 @@ pub fn build_tick_data(
 
     let mut signals_json = vec![];
     for (name, sig) in &machine.signals {
-        let expr_code = match expr_to_rust(&sig.expr, &field_accesses) {
+        let expr_code = match expr_to_rust(&sig.expr, Some(&scope), Some(&sig.r#type), &field_accesses) {
             Ok(code) => code,
             Err(e) => {
                 errors.push(CompileError::new(
@@ -386,7 +392,7 @@ pub fn build_tick_data(
     let mut timers_json = vec![];
     for (name, timer) in &machine.timers {
         let when_code = match &timer.when {
-            Some(expr) => match expr_to_rust(expr, &field_accesses) {
+            Some(expr) => match expr_to_rust(expr, Some(&scope), None, &field_accesses) {
                 Ok(code) => code,
                 Err(e) => {
                     errors.push(CompileError::new(
@@ -549,25 +555,53 @@ fn safe_ident(name: &str) -> String {
 
 // ── Expression to Rust code string ──────────────────────────────────────────
 
+/// Convert an expression to Rust code, generating casts where needed.
+/// 
+/// `scope`: provides variable type information for type inference.
+/// `expected_type`: if provided, the expected type of this expression (for assignment targets).
+/// `field_accesses`: provides variable access paths (y.field, x.field, etc.)
 pub fn expr_to_rust(
     expr: &Expression,
+    scope: Option<&VariableScope>,
+    expected_type: Option<&Type>,
     field_accesses: &FieldAccessMap,
 ) -> Result<String, String> {
     match expr {
-        Expression::Value(v) => Ok(value_to_rust(v)),
+        Expression::Value(v) => {
+            let code = value_to_rust(v);
+            // Cast literal if it doesn't match expected type
+            if let Some(target) = expected_type {
+                let literal_type = type_of_value(v);
+                if literal_type != *target && is_cast_lossless(&literal_type, target) {
+                    Ok(format!("({code} as {})", type_to_rust_str(target)))
+                } else {
+                    Ok(code)
+                }
+            } else {
+                Ok(code)
+            }
+        }
         Expression::Reference(r) => {
-            // Look up precalculated access string
             let access = field_accesses.get(&r.target).ok_or_else(|| {
                 format!("unknown field reference: {}", r.target)
             })?;
-            Ok(access.clone())
+            let code = access.clone();
+            // Cast reference if it doesn't match expected type
+            if let (Some(s), Some(target)) = (scope, expected_type) {
+                if let Some(ref_type) = s.get(&r.target) {
+                    if ref_type != target && is_cast_lossless(ref_type, target) {
+                        return Ok(format!("({code} as {})", type_to_rust_str(target)));
+                    }
+                }
+            }
+            Ok(code)
         }
         Expression::Parenthesis(inner) => {
-            let inner_code = expr_to_rust(inner, field_accesses)?;
+            let inner_code = expr_to_rust(inner, scope, expected_type, field_accesses)?;
             Ok(format!("({inner_code})"))
         }
         Expression::Unary(op, inner) => {
-            let inner_code = expr_to_rust(inner, field_accesses)?;
+            let inner_code = expr_to_rust(inner, scope, None, field_accesses)?;
             let rust_op = match op {
                 UnaryOperator::Negate => "-",
                 UnaryOperator::Not => "!",
@@ -576,8 +610,38 @@ pub fn expr_to_rust(
             Ok(format!("{rust_op}{inner_code}"))
         }
         Expression::Binary(left, op, right) => {
-            let left_code = expr_to_rust(left, field_accesses)?;
-            let right_code = expr_to_rust(right, field_accesses)?;
+            let left_code = expr_to_rust(left, scope, None, field_accesses)?;
+            let right_code = expr_to_rust(right, scope, None, field_accesses)?;
+            
+            // Generate casts for binary operations if types differ
+            let casted = if let Some(s) = scope {
+                if let Some(left_ty) = find_expr_type(left, s, field_accesses) {
+                    if let Some(right_ty) = find_expr_type(right, s, field_accesses) {
+                        if let Some(common) = find_common_type(&left_ty, &right_ty) {
+                            let left_casted = if left_ty != common {
+                                format!("({left_code} as {})", type_to_rust_str(&common))
+                            } else {
+                                left_code
+                            };
+                            let right_casted = if right_ty != common {
+                                format!("({right_code} as {})", type_to_rust_str(&common))
+                            } else {
+                                right_code
+                            };
+                            (left_casted, right_casted)
+                        } else {
+                            (left_code, right_code)
+                        }
+                    } else {
+                        (left_code, right_code)
+                    }
+                } else {
+                    (left_code, right_code)
+                }
+            } else {
+                (left_code, right_code)
+            };
+            
             let rust_op = match op {
                 BinaryOperator::Add => "+",
                 BinaryOperator::Sub => "-",
@@ -600,7 +664,43 @@ pub fn expr_to_rust(
                 BinaryOperator::GreaterThan => ">",
                 BinaryOperator::GreaterEqual => ">=",
             };
-            Ok(format!("{left_code} {rust_op} {right_code}"))
+            Ok(format!("{} {rust_op} {}", casted.0, casted.1))
+        }
+    }
+}
+
+/// Get the type of a value literal.
+fn type_of_value(v: &Value) -> Type {
+    match v {
+        Value::Integer(_) => Type::I64,
+        Value::Float(_) => Type::F64,
+        Value::String(_) => Type::String,
+        Value::Bool(_) => Type::Bool,
+    }
+}
+
+/// Find the type of an expression from the VariableScope and field_accesses.
+fn find_expr_type(
+    expr: &Expression,
+    scope: &VariableScope,
+    field_accesses: &FieldAccessMap,
+) -> Option<Type> {
+    match expr {
+        Expression::Value(v) => Some(type_of_value(v)),
+        Expression::Reference(r) => scope.get(&r.target).cloned(),
+        Expression::Parenthesis(inner) => find_expr_type(inner, scope, field_accesses),
+        Expression::Unary(op, inner) => {
+            let inner_ty = find_expr_type(inner, scope, field_accesses)?;
+            match op {
+                UnaryOperator::Negate => Some(inner_ty),
+                UnaryOperator::Not => Some(Type::Bool),
+                UnaryOperator::BitNot => Some(inner_ty),
+            }
+        }
+        Expression::Binary(left, op, right) => {
+            let left_ty = find_expr_type(left, scope, field_accesses)?;
+            let right_ty = find_expr_type(right, scope, field_accesses)?;
+            check_operator_compatibility(&left_ty, &right_ty, op)
         }
     }
 }
@@ -635,13 +735,24 @@ fn value_to_rust(v: &Value) -> String {
 pub fn stmt_to_rust(
     stmt: &FullStatement,
     ctx: &CodegenContext,
+    scope: Option<&VariableScope>,
     field_accesses: &FieldAccessMap,
 ) -> Result<String, String> {
     let target = safe_ident(&stmt.statement.target);
     // Target is always y.field (inputs can't be targets)
     let target_access = format!("{}.{}", ctx.update_var, target);
+    
+    // Get the target type for casting
+    let target_type = if let Some(s) = scope {
+        s.get(&stmt.statement.target).cloned()
+    } else {
+        None
+    };
+    
     let expr_code = expr_to_rust(
         &stmt.statement.expression,
+        scope,
+        target_type.as_ref(),
         field_accesses,
     ).map_err(|e| format!("statement error: {}", e))?;
 
@@ -788,7 +899,8 @@ fn int_suffix_for_type(t: &crate::machine::Type) -> &'static str {
 /// Returns the raw expression code — truthiness is implicit in Rust.
 pub fn condition_to_rust(
     expr: &FullExpression,
+    scope: Option<&VariableScope>,
     field_accesses: &FieldAccessMap,
 ) -> Result<String, String> {
-    expr_to_rust(&expr.expression, field_accesses)
+    expr_to_rust(&expr.expression, scope, None, field_accesses)
 }
