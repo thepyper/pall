@@ -17,6 +17,8 @@ pub struct TickInfo {
 
 use crate::machine::StateMachine;
 use validation::validate_machines;
+use typecheck::infer_all;
+use type_validation::validate_types;
 
 /// Compiler orchestrator: validates machines, then delegates to the backend.
 pub struct Compiler<B: Backend> {
@@ -32,9 +34,26 @@ impl<B: Backend> Compiler<B> {
         &self,
         machines: &[StateMachine],
     ) -> Result<FileSet, Vec<CompileError>> {
-        // Run validation first
+        // Phase 1: Type inference
+        let type_results = infer_all(machines);
+        
+        // Check for inference errors
+        for (_env, errors) in type_results.iter() {
+            if !errors.is_empty() {
+                return Err(errors.to_vec());
+            }
+        }
+        
+        // Phase 2: Type validation
+        let type_errors = validate_types(machines, &type_results);
+        if !type_errors.is_empty() {
+            return Err(type_errors);
+        }
+        
+        // Phase 3: Original validation
         validate_machines(machines)?;
-        // Then delegate to backend
+        
+        // Phase 4: Code generation (backend)
         self.backend.compile(machines)
     }
 }

@@ -28,7 +28,7 @@ impl fmt::Display for CompileErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompileError {
     pub message: String,
     pub line: Option<usize>,

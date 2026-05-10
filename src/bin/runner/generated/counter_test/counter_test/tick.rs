@@ -11,6 +11,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
+        State::Goal => {
+
+        }
+
         State::Initial => {
             y.state = State::Counting;
 
@@ -21,10 +25,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
             if y.counter >= 10i64 {
             y.state = State::Goal;
             }
-
-        }
-
-        State::Goal => {
 
         }
 
