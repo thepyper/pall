@@ -143,6 +143,154 @@ Constants are generated as Rust `pub const` values in the types module.
 | `F64` | `f64` | 64-bit float |
 | `String` | `String` | String type |
 
+### Implicit Type Casting
+
+The Pall compiler supports **implicit (automatic) type casting** as part of its type system. All casting is **lossless** — the compiler will reject any cast that would lose precision or change the semantic meaning of a value.
+
+#### Casting Rules
+
+Casting is only permitted to target types that **fully contain** the source type without precision or sign loss.
+
+**Allowed casts:**
+
+| From | To (permitted) |
+|------|----------------|
+| `Bool` | `U8`, `U16`, `U32`, `U64`, `I8`, `I16`, `I32`, `I64`, `F32`, `F64` |
+| `U8` | `U16`, `U32`, `U64`, `I16`, `I32`, `I64` |
+| `U16` | `U32`, `U64`, `I32`, `I64` |
+| `U32` | `U64`, `I64` |
+| `U64` | `I64` |
+| `I8` | `I16`, `I32`, `I64` |
+| `I16` | `I32`, `I64` |
+| `I32` | `I64` |
+| `F32` | `F64` |
+
+**Never allowed:**
+
+| Cast | Reason |
+|------|--------|
+| Any signed → unsigned | Sign conversion is not lossless (e.g., `I8 → U8`, `I32 → U32`) |
+| Any float → integer | Precision loss (e.g., `F32 → U8`) |
+| `I64`/`U64` → `F64` | Mantissa overflow (>52 bits cannot be represented exactly in f64) |
+| Any type → `String` | No automatic string conversion |
+
+#### Common Type Resolution
+
+When two operands of different types are combined in a binary operation (`+`, `-`, `*`, `/`, `%`, `&`, `\|`, `^`, `==`, `!=`, `<`, `<=`, `>`, `>=`), the compiler **automatically** finds a common type that both operands can cast to, using this algorithm:
+
+1. **Find all candidates** — types that both operands can losslessly cast to
+2. **Select the smallest** — pick the candidate with the fewest bits
+3. **Tie-break with unsigned priority** — if two candidates have the same bit count (e.g., `U32` and `I32`), prefer the unsigned one
+
+**Examples:**
+
+| Expression | Operand Types | Common Type | Generated Code |
+|-----------|---------------|-------------|----------------|
+| `a + b` | `U8 + U16` | `U16` | `(a as u16) + b` |
+| `a + b` | `U8 + U32` | `U32` | `(a as u32) + b` |
+| `a + b` | `I8 + U16` | `I32` | `(a as i32) + (b as i32)` |
+| `a + b` | `U32 + I64` | `I64` | `(a as i64) + b` |
+| `a + b` | `I32 + U32` | `U32` | `(a as u32) + b` *(unsigned priority)* |
+
+**Note:** In `I32 + U32`, unsigned `U32` is preferred because both operands are unsigned-compatible and `U32` is smaller than `I64`.
+
+#### Int-to-Float Casting Rules
+
+Integer-to-float casting is **conditionally permitted** based on mantissa precision:
+
+| Cast | Allowed? | Reason |
+|------|----------|--------|
+| `U8`/`I8` → `F32` | ✅ | 8 bits fit in f32's 24-bit mantissa |
+| `U16`/`I16` → `F32` | ✅ | 16 bits fit in f32's 24-bit mantissa |
+| `U32`/`I32` → `F64` | ✅ | 32 bits fit in f64's 52-bit mantissa |
+| `U64`/`I64` → `F64` | ❌ | 64 bits exceed f64's 52-bit mantissa |
+
+#### Literal Types
+
+Literal values have implicit default types that influence common type resolution:
+
+| Literal | Default Type | Notes |
+|---------|-------------|-------|
+| `42`, `-5`, `0` | `I64` | Signed 64-bit integer |
+| `18446744073709551615` (i64 overflow) | `U64` | Unsigned 64-bit when value exceeds i64 range |
+| `3.14`, `2.0E-3` | `F64` | 64-bit float |
+| `true`, `false` | `Bool` | Boolean |
+| `"hello"` | `String` | String |
+
+**Example:** `counter: U8 = 100` — literal `100` has type `I64`, which casts to `U8` (since `I64 → U8` is **not** allowed due to signed→unsigned rule).
+
+> **Important:** Literal signed values cannot be assigned to unsigned variables via implicit cast. Use explicit unsigned literals or variables of matching signedness.
+
+#### Truthiness (C++-Style)
+
+In contexts requiring a boolean value (`when` conditions, `&&`, `\|\|`, `^^`), Pall uses **C++-style truthiness**:
+
+- `0` → `false`
+- Non-zero → `true`
+
+This applies to **both** `Bool` values and numeric types.
+
+**Implications:**
+
+| Expression | Valid? | Notes |
+|-----------|--------|-------|
+| `when: counter > 0` | ✅ | `>` returns `Bool` |
+| `when: counter` | ✅ | `counter` (numeric) resolves to boolean via truthiness |
+| `when: flag && counter` | ✅ | `flag` (Bool) AND `counter` (numeric, truthy) |
+| `when: "hello"` | ❌ | `String` is not truthy |
+
+**Key distinction:** Truthiness is **resolution**, not casting. The numeric value is checked for zero/non-zero at runtime, but no type conversion occurs in the AST.
+
+#### Operator-Type Compatibility
+
+Each operator class has specific type requirements:
+
+| Operator Class | Operators | Operand Types | Result Type |
+|---------------|-----------|---------------|-------------|
+| **Arithmetic** | `+`, `-`, `*`, `/`, `%` | Both numeric | Common numeric type |
+| **Bitwise** | `&`, `\|`, `^` | Both integer (not float, not Bool) | Common integer type |
+| **Logical** | `&&`, `\|\|`, `^^` | Both truthy (Bool or numeric) | `Bool` |
+| **Equality** | `==`, `!=` | Any type (cast to common if different) | `Bool` |
+| **Ordering** | `<`, `<=`, `>`, `>=` | Both numeric | `Bool` |
+
+**Prohibited combinations:**
+
+| Operation | Reason |
+|-----------|--------|
+| `true + 5` | Bool not allowed in arithmetic |
+| `true < 5` | Bool not allowed in ordering |
+| `a & b` where `a:F32` | Bitwise requires integer |
+| `a || "text"` | String not truthy |
+
+#### Assignment Type Checking
+
+When assigning an expression to a variable, the compiler verifies that the expression's type can be **losslessly cast** to the variable's type:
+
+```yaml
+variables:
+  x:
+    type: U8
+  y:
+    type: U32
+
+states:
+  initial:
+    transitions:
+      - target: final
+        when: null
+        do:
+          - y = x    # ✅ OK: U8 → U32 (widening)
+          - x = y    # ❌ ERROR: U32 → U8 (lossy cast)
+```
+
+#### Boolean Restrictions
+
+`Bool` values have limited usage:
+
+- **Allowed in:** `==`, `!=`, `&&`, `\|\|`, `^^`, `!`
+- **Allowed in:** `when` conditions (both Bool and truthy numeric)
+- **NOT allowed in:** `+`, `-`, `*`, `/`, `%`, `<`, `<=`, `>`, `>=`, `&`, `\|`, `^`
+
 ### Value
 
 The `Value` enum represents literal values. In YAML, `Value` accepts **both**:
@@ -162,9 +310,63 @@ initial:
 
 | Variant | Fields | Description |
 |---------|--------|-------------|
-| `Integer` | `value: i64`, `fmt: IntegerFmt` | Integer literal |
+| `Integer` | `value: i64`, `fmt: IntegerFmt` | Integer literal (stored as i64 internally) |
 | `Float` | `value: f64`, `fmt: FloatFmt` | Float literal |
 | `String` | `value: string`, `fmt: StringFmt` | String literal |
+| `Bool` | `value: bool` | Boolean literal |
+
+### Type Inference
+
+The Pall compiler performs **type inference** at compile time for all expressions. The type checker walks the AST, assigns unique IDs to each expression node, and builds a `TypeEnv` mapping expression IDs to their inferred types.
+
+**Inference rules:**
+
+| Expression | Type Inferred |
+|-----------|---------------|
+| Integer literal `42` | `I64` (or `U64` if value exceeds i64 range) |
+| Float literal `3.14` | `F64` |
+| Boolean `true`/`false` | `Bool` |
+| String literal `"hello"` | `String` |
+| Variable reference | Type declared in machine |
+| `!expr` | `Bool` |
+| `-expr` | Same as `expr` (must be numeric) |
+| `~expr` | Same as `expr` (must be integer) |
+| `a + b` | Common numeric type of `a` and `b` |
+| `a == b` | `Bool` |
+| `a && b` | `Bool` |
+
+### Type Validation Errors
+
+The compiler produces clear error messages for type violations:
+
+```yaml
+# Example: lossy cast error
+variables:
+  x:
+    type: U8
+states:
+  initial:
+    transitions:
+      - target: final
+        when: null
+        do:
+          - x = large_value  # ERROR: cannot assign U32 to U8 (lossy cast)
+```
+
+Error messages include:
+- The operation context (state, machine)
+- The source type and target type
+- The reason for rejection (e.g., "lossy cast", "operator incompatible with types")
+
+**Common errors:**
+
+| Scenario | Error |
+|----------|-------|
+| `U32` → `U8` | "cannot assign U32 to U8 (lossy cast)" |
+| `I8` → `U8` | "cannot assign I8 to U8 (lossy cast)" |
+| `true + 5` | "operator Add incompatible with types Bool and I64" |
+| `"hello" > 5` | "operator LessThan incompatible with types String and I64" |
+| `when: "text"` | "when condition must be truthy, got String" |
 
 #### IntegerFmt
 
