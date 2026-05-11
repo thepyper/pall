@@ -8,3 +8,4 @@ mod bitwise_ops;
 mod expression_precedence;
 mod logic_ops;
 mod traffic_light;
+mod type_casting;

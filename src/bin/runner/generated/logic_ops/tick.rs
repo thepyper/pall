@@ -11,6 +11,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
+        State::Done => {
+
+        }
+
         State::Start => {
             y.state = State::Compute;
 
@@ -33,10 +37,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Done => {
-
-        }
-
 
     }
 
@@ -50,13 +50,13 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
-        result_or: false,
-        a: true,
         result_and: false,
-        b: false,
-        result_not_a: false,
-        flag2: false,
+        result_or: false,
         flag1: false,
+        a: true,
+        flag2: false,
         result_xor: false,
+        result_not_a: false,
+        b: false,
     }
 }

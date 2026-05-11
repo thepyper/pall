@@ -710,7 +710,8 @@ fn value_to_rust(v: &Value) -> String {
         Value::Integer(iv) => format!("{}i64", iv.value),
         Value::Float(fv) => {
             let s = format!("{}", fv.value);
-            if s.contains('e') || s.contains('E') {
+            // Add .0 only if there's no decimal point or exponent
+            if s.contains('.') || s.contains('e') || s.contains('E') {
                 s
             } else {
                 format!("{s}.0")

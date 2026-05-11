@@ -18,6 +18,8 @@ pub mod bitwise_ops_types;
 pub mod bitwise_ops_tick;
 pub mod expression_precedence_types;
 pub mod expression_precedence_tick;
+pub mod type_casting_types;
+pub mod type_casting_tick;
 pub mod group;
 
 pub use counter_test_types::Persistent;
@@ -38,4 +40,6 @@ pub use bitwise_ops_types::Persistent;
 pub use bitwise_ops_tick::{tick, init};
 pub use expression_precedence_types::Persistent;
 pub use expression_precedence_tick::{tick, init};
+pub use type_casting_types::Persistent;
+pub use type_casting_tick::{tick, init};
 pub use group::{GroupPersistent, group_tick};

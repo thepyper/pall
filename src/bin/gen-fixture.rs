@@ -15,7 +15,7 @@ use std::path::PathBuf;
 
 use pall::compiler::{Compiler, RustBackend};
 use pall::machine::{
-    Action, FullExpression, FullStatement, State, StateMachine, Transition,
+    Action, FloatFmt, FloatValue, FullExpression, FullStatement, State, StateMachine, Transition,
     Type, Value, Variable, IntegerFmt, IntegerValue,
 };
 
@@ -30,6 +30,7 @@ fn main() {
         build_logic_ops(),
         build_bitwise_ops(),
         build_expression_precedence(),
+        build_type_casting(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -644,5 +645,129 @@ fn build_expression_precedence() -> StateMachine {
         timers: HashMap::new(),
         variables,
         constants: HashMap::new(),
+    }
+}
+
+fn build_type_casting() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "cast_ops".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let cast_ops_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![
+                // U8 + U16 → U16 (implicit cast by compiler)
+                FullStatement::parse("result_u8_u16 = u8_val + u16_val").unwrap(),
+                // I8 + U16 → I32 (smallest common: I32 and I64, I32 is smaller)
+                FullStatement::parse("result_i8_u16 = i8_val + u16_val").unwrap(),
+                // I32 + I64 → I64 (signed widening)
+                FullStatement::parse("result_i32_i64 = i32_val + i64_val").unwrap(),
+                // U8 → U16 assignment (widening accepted)
+                FullStatement::parse("result_widening = u8_val").unwrap(),
+                // Truthiness: flag && (u8_val > threshold)
+                FullStatement::parse("result_truty = flag && (u8_val > threshold)").unwrap(),
+                // U8 → U8 (no cast, same type)
+                FullStatement::parse("target = u8_val").unwrap(),
+                // Float addition (F64 literal + F64 var)
+                FullStatement::parse("sum = 3.14").unwrap(),
+            ],
+        }],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("cast_ops".to_string(), cast_ops_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("u8_val".to_string(), variable_u8(10));
+    variables.insert("u16_val".to_string(), variable_u16(20));
+    variables.insert("u32_val".to_string(), variable_u32(5));
+    variables.insert("i8_val".to_string(), variable_i8(3));
+    variables.insert("i32_val".to_string(), variable_i32(7));
+    variables.insert("i64_val".to_string(), variable_i64(100));
+    variables.insert("result_u8_u16".to_string(), variable_u16(0));
+    variables.insert("result_i8_u16".to_string(), variable_i32(0));
+    variables.insert("result_i32_i64".to_string(), variable_i64(0));
+    variables.insert("result_widening".to_string(), variable_u16(0));
+    variables.insert("result_truty".to_string(), variable_bool(false));
+    variables.insert("flag".to_string(), variable_bool(true));
+    variables.insert("threshold".to_string(), variable_u8(5));
+    variables.insert("sum".to_string(), variable_f64(0.0));
+    variables.insert("target".to_string(), variable_u8(0));
+
+    StateMachine {
+        id: "type_casting".to_string(),
+        initial: Some("start".to_string()),
+        states,
+        inputs: HashMap::new(),
+        signals: HashMap::new(),
+        timers: HashMap::new(),
+        variables,
+        constants: HashMap::new(),
+    }
+}
+
+fn variable_u8(val: u8) -> Variable {
+    Variable {
+        r#type: Type::U8,
+        initial: Some(Value::Integer(IntegerValue { value: val as i64, fmt: IntegerFmt::Dec })),
+        output: false,
+    }
+}
+
+fn variable_u16(val: u16) -> Variable {
+    Variable {
+        r#type: Type::U16,
+        initial: Some(Value::Integer(IntegerValue { value: val as i64, fmt: IntegerFmt::Dec })),
+        output: false,
+    }
+}
+
+fn variable_u32(val: u32) -> Variable {
+    Variable {
+        r#type: Type::U32,
+        initial: Some(Value::Integer(IntegerValue { value: val as i64, fmt: IntegerFmt::Dec })),
+        output: false,
+    }
+}
+
+fn variable_i8(val: i8) -> Variable {
+    Variable {
+        r#type: Type::I8,
+        initial: Some(Value::Integer(IntegerValue { value: val as i64, fmt: IntegerFmt::Dec })),
+        output: false,
+    }
+}
+
+fn variable_i32(val: i32) -> Variable {
+    Variable {
+        r#type: Type::I32,
+        initial: Some(Value::Integer(IntegerValue { value: val as i64, fmt: IntegerFmt::Dec })),
+        output: false,
+    }
+}
+
+fn variable_f64(val: f64) -> Variable {
+    Variable {
+        r#type: Type::F64,
+        initial: Some(Value::Float(FloatValue { value: val, fmt: FloatFmt::Decimal })),
+        output: false,
     }
 }

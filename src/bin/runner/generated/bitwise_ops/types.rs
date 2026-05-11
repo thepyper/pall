@@ -57,10 +57,10 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub result_and: i64,
+    pub b: i64,
     pub result_xor: i64,
+    pub result_or: i64,
+    pub result_and: i64,
     pub result_not_a: i64,
     pub a: i64,
-    pub b: i64,
-    pub result_or: i64,
 }

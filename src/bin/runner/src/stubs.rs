@@ -118,6 +118,15 @@ mod expression_precedence_tick {
     include!("../generated/expression_precedence/tick.rs");
 }
 
+// type_casting machine stubs
+mod type_casting_types {
+    include!("../generated/type_casting/types.rs");
+}
+
+mod type_casting_tick {
+    include!("../generated/type_casting/tick.rs");
+}
+
 // ── Re-exports for convenience ──────────────────────────────────────────────
 // Counter_test exports (used by counter_test.rs test)
 pub use counter_test_types::Persistent;
@@ -163,6 +172,11 @@ pub use bitwise_ops_tick::tick as bitwise_ops_tick;
 pub use expression_precedence_types::Persistent as ExpressionPrecedencePersistent;
 pub use expression_precedence_tick::init as expression_precedence_init;
 pub use expression_precedence_tick::tick as expression_precedence_tick;
+
+// Type_casting exports (used by type_casting.rs test)
+pub use type_casting_types::Persistent as TypeCastingPersistent;
+pub use type_casting_tick::init as type_casting_init;
+pub use type_casting_tick::tick as type_casting_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;
