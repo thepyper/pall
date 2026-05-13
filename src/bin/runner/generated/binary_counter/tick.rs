@@ -11,13 +11,13 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
-        State::Done => {
-
-        }
-
         State::Counting => {
             y.count = y.count + 1i64;
             y.state = State::Idle;
+
+        }
+
+        State::Done => {
 
         }
 

@@ -50,13 +50,13 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
+        a: true,
         flag1: false,
         flag2: false,
-        a: true,
         result_not_a: false,
+        result_xor: false,
         b: false,
         result_and: false,
-        result_xor: false,
         result_or: false,
     }
 }

@@ -11,7 +11,11 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
-        State::Done => {
+        State::Compute => {
+            y.result_precedence = y.a + y.b * y.c;
+            y.result_parens = (y.a + y.b) * y.c;
+            y.result_mixed = y.a * y.b + y.c * y.a;
+            y.state = State::Done;
 
         }
 
@@ -20,11 +24,7 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Compute => {
-            y.result_precedence = y.a + y.b * y.c;
-            y.result_parens = (y.a + y.b) * y.c;
-            y.result_mixed = y.a * y.b + y.c * y.a;
-            y.state = State::Done;
+        State::Done => {
 
         }
 
@@ -41,11 +41,11 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
-        a: 3i64,
-        c: 5i64,
         b: 4i64,
-        result_precedence: 0i64,
+        c: 5i64,
         result_parens: 0i64,
+        a: 3i64,
+        result_precedence: 0i64,
         result_mixed: 0i64,
     }
 }

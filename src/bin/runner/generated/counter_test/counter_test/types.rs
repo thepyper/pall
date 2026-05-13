@@ -9,18 +9,18 @@ use std::convert::TryFrom;
 /// Represents the possible states of machine: counter_test
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Goal,
-    Counting,
     Initial,
+    Counting,
+    Goal,
 }
 
 impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Goal => "goal",
-            State::Counting => "counting",
             State::Initial => "initial",
+            State::Counting => "counting",
+            State::Goal => "goal",
         }
     }
 }
@@ -35,9 +35,9 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "goal" => Ok(State::Goal),
-            "counting" => Ok(State::Counting),
             "initial" => Ok(State::Initial),
+            "counting" => Ok(State::Counting),
+            "goal" => Ok(State::Goal),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }

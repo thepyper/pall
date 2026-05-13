@@ -57,12 +57,12 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
+    pub a: bool,
     pub flag1: bool,
     pub flag2: bool,
-    pub a: bool,
     pub result_not_a: bool,
+    pub result_xor: bool,
     pub b: bool,
     pub result_and: bool,
-    pub result_xor: bool,
     pub result_or: bool,
 }

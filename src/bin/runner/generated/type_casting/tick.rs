@@ -11,6 +11,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
+        State::Done => {
+
+        }
+
         State::Start => {
             y.state = State::CastOps;
 
@@ -28,10 +32,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Done => {
-
-        }
-
 
     }
 
@@ -45,20 +45,20 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
+        result_i8_u16: 0i32,
+        result_truty: false,
+        threshold: 5u8,
+        flag: true,
         result_u8_u16: 0u16,
-        result_i32_i64: 0i64,
+        u16_val: 20u16,
+        sum: 0.0 as f64,
+        i32_val: 7i32,
+        u8_val: 10u8,
         target: 0u8,
         i8_val: 3i8,
-        result_i8_u16: 0i32,
-        result_widening: 0u16,
-        flag: true,
-        threshold: 5u8,
         i64_val: 100i64,
-        sum: 0.0 as f64,
+        result_i32_i64: 0i64,
+        result_widening: 0u16,
         u32_val: 5u32,
-        u16_val: 20u16,
-        u8_val: 10u8,
-        i32_val: 7i32,
-        result_truty: false,
     }
 }

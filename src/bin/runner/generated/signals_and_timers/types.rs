@@ -10,8 +10,8 @@ use std::convert::TryFrom;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Start,
-    Compute,
     Done,
+    Compute,
 }
 
 impl State {
@@ -19,8 +19,8 @@ impl State {
     pub const fn as_str(&self) -> &'static str {
         match self {
             State::Start => "start",
-            State::Compute => "compute",
             State::Done => "done",
+            State::Compute => "compute",
         }
     }
 }
@@ -36,8 +36,8 @@ impl TryFrom<&str> for State {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "start" => Ok(State::Start),
-            "compute" => Ok(State::Compute),
             "done" => Ok(State::Done),
+            "compute" => Ok(State::Compute),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -51,8 +51,8 @@ impl TryFrom<String> for State {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-pub const large_const: i64 = 1000i64;
 pub const small_const: u8 = 10u8;
+pub const large_const: i64 = 1000i64;
 
 // ── Persistent ───────────────────────────────────────────────────────────────
 /// Holds all persistent state for machine: signals_and_timers
@@ -61,14 +61,14 @@ pub struct Persistent {
     /// Current state (enum)
     pub state: State,
     pub input_val: i64,
-    pub flag: bool,
     pub ratio: f64,
-    pub doubled: i64,
+    pub flag: bool,
     pub counter: i64,
     pub result_signal: i64,
+    pub doubled: i64,
+    pub signal_counter_plus_one: i64,
     pub signal_flag: bool,
     pub signal_double_counter: i64,
-    pub signal_counter_plus_one: i64,
     pub timer_cond: i64,
     pub timer_always: i64,
 }
