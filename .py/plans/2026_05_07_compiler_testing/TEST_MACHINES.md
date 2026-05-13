@@ -91,19 +91,9 @@ Simple → Complex ordering. One group = one file pair (creator + runner).
 
 ---
 
-## Group 5: Type System ⬜
+## Group 5: Signals and Timers ✅ COMPLETO
 
-### 5a. type_system
-- **Purpose**: Test all variable types (Bool, U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, String)
-- **Features**: All types with correct values
-- **States**: start → type_test → done
-- **Tests**: All type variables have correct final values
-
----
-
-## Group 6: Signals and Timers ⬜
-
-### 6a. signals_and_timers
+### 5a. signals_and_timers ✅ COMPLETED
 - **Purpose**: Test signals (computed expressions) and timers
 - **Features**: Signal from expression, timer accumulation with/without condition
 - **States**: start → compute → done
@@ -111,13 +101,27 @@ Simple → Complex ordering. One group = one file pair (creator + runner).
 
 ---
 
-## Group 7: Constants and Inputs ⬜
+## Group 6: Constants and Inputs ✅ COMPLETO
 
-### 7a. constants_and_inputs
+### 6a. signals_and_timers ✅ COMPLETED (merged with Group 5)
 - **Purpose**: Test constants (pub const) and inputs
 - **Features**: Machine with constants, inputs that are read-only
-- **States**: start → use_constants → done
+- **States**: start → compute → done
 - **Tests**: Constants used correctly in expressions, inputs not modified
+
+> Note: constants_and_inputs merged into signals_and_timers machine since it
+> uses the same state flow. Constants (large_const, small_const) and inputs
+> (input_val) are tested alongside signals and timers.
+
+---
+
+## Group 7: Type System ⬜
+
+### 7a. type_system
+- **Purpose**: Test all variable types (Bool, U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, String)
+- **Features**: All types with correct values
+- **States**: start → type_test → done
+- **Tests**: All type variables have correct final values
 
 ---
 
@@ -150,15 +154,17 @@ Simple → Complex ordering. One group = one file pair (creator + runner).
 | 2. Arithmetic | 2 | 4 | 6 | 10 |
 | 3. Logic & Bitwise | 3 | 6 | 9 | 15 |
 | 4. Type Casting | 1 | 2 | 3 | 5 |
-| 5. Type System | 0 | — | — | — |
-| 6. Signals & Timers | 0 | — | — | — |
-| 7. Constants & Inputs | 0 | — | — | — |
+| 5. Signals & Timers | 1 | 1* | 3 | 4 |
+| 6. Constants & Inputs | — | — | — | — |
+| 7. Type System | 0 | — | — | — |
 | 8. Multi-Machine | 0 | — | — | — |
 | 9. Edge Cases | 0 | — | — | — |
-| **Totals** | **9** | **18** | **27** | **45** |
+| **Totals** | **10** | **19*** | **30** | **49** |
 
-Plus: 43 lib tests (parser + validation)
-**Total tests: 88**
+*signals_and_timers creator test: 1 compilation test + 1 ignored (YAML equality deferred)
+
+Plus: 89 lib tests (parser + validation)
+**Total tests: 145**
 
 ---
 
