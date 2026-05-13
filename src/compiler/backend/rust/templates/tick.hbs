@@ -16,19 +16,19 @@ pub fn tick({{{state_var}}}: &Persistent, tick_info: &TickInfo) -> Result<Persis
 
     {{!-- Calculate Signals (always executed, after state/transition logic) --}}
     {{#each signals}}
-    {{{update_var}}}.{{{name}}} = {{{expr_rust_code}}};
+    {{{../update_var}}}.{{{name}}} = {{{expr_rust_code}}};
     {{/each}}
 
     {{!-- Accumulate Timers (always executed) --}}
     {{#each timers}}
     {{#if when_rust_code}}
     if {{{when_rust_code}}} {
-        {{{update_var}}}.{{{name}}} = {{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}};
+        {{{../update_var}}}.{{{name}}} = {{{../state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}};
     } else {
-        {{{update_var}}}.{{{name}}} = 0 as {{{rust_type}}};
+        {{{../update_var}}}.{{{name}}} = 0 as {{{rust_type}}};
     }
     {{else}}
-    {{{update_var}}}.{{{name}}} = {{{state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}};
+    {{{../update_var}}}.{{{name}}} = {{{../state_var}}}.{{{name}}} + tick_info.delta_ms as {{{rust_type}}};
     {{/if}}
     {{/each}}
 
@@ -41,13 +41,13 @@ pub fn init() -> Persistent {
     Persistent {
         state: State::{{{initial_variant}}},
 {{#each inputs}}
-        {{{name}}}: default(),
+        {{{name}}}: <_>::default(),
 {{/each}}
 {{#each variables}}
         {{{name}}}: {{{default_value}}},
 {{/each}}
 {{#each signals}}
-        {{{name}}}: default(),
+        {{{name}}}: <_>::default(),
 {{/each}}
 {{#each timers}}
         {{{name}}}: 0 as {{{rust_type}}},

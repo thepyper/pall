@@ -16,10 +16,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
-        State::Done => {
-
-        }
-
         State::CastOps => {
             y.result_u8_u16 = (y.u8_val as u16) + y.u16_val;
             y.result_i8_u16 = (y.i8_val as i32) + (y.u16_val as i32);
@@ -29,6 +25,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
             y.target = y.u8_val;
             y.sum = 3.14;
             y.state = State::Done;
+
+        }
+
+        State::Done => {
 
         }
 
@@ -45,20 +45,20 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
-        i64_val: 100i64,
-        u32_val: 5u32,
-        result_i8_u16: 0i32,
-        u16_val: 20u16,
+        result_u8_u16: 0u16,
+        result_i32_i64: 0i64,
+        target: 0u8,
         i8_val: 3i8,
+        result_i8_u16: 0i32,
+        result_widening: 0u16,
+        flag: true,
+        threshold: 5u8,
+        i64_val: 100i64,
+        sum: 0.0 as f64,
+        u32_val: 5u32,
+        u16_val: 20u16,
         u8_val: 10u8,
         i32_val: 7i32,
-        target: 0u8,
-        flag: true,
-        result_u8_u16: 0u16,
-        result_widening: 0u16,
-        threshold: 5u8,
         result_truty: false,
-        sum: 0.0 as f64,
-        result_i32_i64: 0i64,
     }
 }

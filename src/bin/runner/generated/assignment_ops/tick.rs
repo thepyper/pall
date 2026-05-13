@@ -16,6 +16,10 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
 
         }
 
+        State::Done => {
+
+        }
+
         State::Compute => {
             y.result_add = y.result_add + y.x;
             y.result_sub = y.result_sub - y.y;
@@ -23,10 +27,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
             y.result_div = y.result_div / y.x;
             y.result_mod = y.result_mod % y.y;
             y.state = State::Done;
-
-        }
-
-        State::Done => {
 
         }
 
@@ -44,12 +44,12 @@ pub fn init() -> Persistent {
     Persistent {
         state: State::Start,
         result_mul: 0i64,
-        y: 5i64,
-        result_add: 0i64,
-        result_sub: 0i64,
-        result_div: 0i64,
         x: 10i64,
         z: 2i64,
+        result_div: 0i64,
+        y: 5i64,
+        result_sub: 0i64,
         result_mod: 0i64,
+        result_add: 0i64,
     }
 }

@@ -20,6 +20,8 @@ pub mod expression_precedence_types;
 pub mod expression_precedence_tick;
 pub mod type_casting_types;
 pub mod type_casting_tick;
+pub mod signals_and_timers_types;
+pub mod signals_and_timers_tick;
 pub mod group;
 
 pub use counter_test_types::Persistent;
@@ -42,4 +44,6 @@ pub use expression_precedence_types::Persistent;
 pub use expression_precedence_tick::{tick, init};
 pub use type_casting_types::Persistent;
 pub use type_casting_tick::{tick, init};
+pub use signals_and_timers_types::Persistent;
+pub use signals_and_timers_tick::{tick, init};
 pub use group::{GroupPersistent, group_tick};

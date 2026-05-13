@@ -9,3 +9,4 @@ mod traffic_light;
 mod bitwise_ops;
 mod expression_precedence;
 mod type_casting;
+mod signals_and_timers;

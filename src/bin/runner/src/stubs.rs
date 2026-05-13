@@ -118,6 +118,15 @@ mod expression_precedence_tick {
     include!("../generated/expression_precedence/tick.rs");
 }
 
+// signals_and_timers machine stubs
+mod signals_and_timers_types {
+    include!("../generated/signals_and_timers/types.rs");
+}
+
+mod signals_and_timers_tick {
+    include!("../generated/signals_and_timers/tick.rs");
+}
+
 // type_casting machine stubs
 mod type_casting_types {
     include!("../generated/type_casting/types.rs");
@@ -177,6 +186,12 @@ pub use expression_precedence_tick::tick as expression_precedence_tick;
 pub use type_casting_types::Persistent as TypeCastingPersistent;
 pub use type_casting_tick::init as type_casting_init;
 pub use type_casting_tick::tick as type_casting_tick;
+
+// Signals_and_timers exports (used by signals_and_timers.rs test)
+pub use signals_and_timers_types::Persistent as SignalsAndTimersPersistent;
+pub use signals_and_timers_types::State as SignalsAndTimersState;
+pub use signals_and_timers_tick::init as signals_and_timers_init;
+pub use signals_and_timers_tick::tick as signals_and_timers_tick;
 
 // Error type (used by helper and generated code)
 pub use error::TickError;

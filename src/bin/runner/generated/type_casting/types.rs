@@ -10,8 +10,8 @@ use std::convert::TryFrom;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Start,
-    Done,
     CastOps,
+    Done,
 }
 
 impl State {
@@ -19,8 +19,8 @@ impl State {
     pub const fn as_str(&self) -> &'static str {
         match self {
             State::Start => "start",
-            State::Done => "done",
             State::CastOps => "cast_ops",
+            State::Done => "done",
         }
     }
 }
@@ -36,8 +36,8 @@ impl TryFrom<&str> for State {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "start" => Ok(State::Start),
-            "done" => Ok(State::Done),
             "cast_ops" => Ok(State::CastOps),
+            "done" => Ok(State::Done),
             _ => Err(format!("unknown state: '{}'", value)),
         }
     }
@@ -57,19 +57,19 @@ impl TryFrom<String> for State {
 pub struct Persistent {
     /// Current state (enum)
     pub state: State,
-    pub i64_val: i64,
-    pub u32_val: u32,
-    pub result_i8_u16: i32,
-    pub u16_val: u16,
+    pub result_u8_u16: u16,
+    pub result_i32_i64: i64,
+    pub target: u8,
     pub i8_val: i8,
+    pub result_i8_u16: i32,
+    pub result_widening: u16,
+    pub flag: bool,
+    pub threshold: u8,
+    pub i64_val: i64,
+    pub sum: f64,
+    pub u32_val: u32,
+    pub u16_val: u16,
     pub u8_val: u8,
     pub i32_val: i32,
-    pub target: u8,
-    pub flag: bool,
-    pub result_u8_u16: u16,
-    pub result_widening: u16,
-    pub threshold: u8,
     pub result_truty: bool,
-    pub sum: f64,
-    pub result_i32_i64: i64,
 }

@@ -11,12 +11,12 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
-        State::Setup => {
-            y.state = State::Work;
+        State::Done => {
 
         }
 
-        State::Done => {
+        State::Setup => {
+            y.state = State::Work;
 
         }
 

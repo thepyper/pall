@@ -9,8 +9,8 @@ use std::convert::TryFrom;
 /// Represents the possible states of machine: conditional_action
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum State {
-    Setup,
     Done,
+    Setup,
     Work,
 }
 
@@ -18,8 +18,8 @@ impl State {
     /// Returns the lowercase string name of this state.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            State::Setup => "setup",
             State::Done => "done",
+            State::Setup => "setup",
             State::Work => "work",
         }
     }
@@ -35,8 +35,8 @@ impl TryFrom<&str> for State {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "setup" => Ok(State::Setup),
             "done" => Ok(State::Done),
+            "setup" => Ok(State::Setup),
             "work" => Ok(State::Work),
             _ => Err(format!("unknown state: '{}'", value)),
         }

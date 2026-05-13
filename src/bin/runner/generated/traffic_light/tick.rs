@@ -11,12 +11,6 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
     let mut y = x.clone();
 
     match x.state {
-        State::Yellow => {
-            y.tick_count = y.tick_count + 1i64;
-            y.state = State::Green;
-
-        }
-
         State::Green => {
             y.tick_count = y.tick_count + 1i64;
             y.state = State::Red;
@@ -26,6 +20,12 @@ pub fn tick(x: &Persistent, tick_info: &TickInfo) -> Result<Persistent, TickErro
         State::Red => {
             y.tick_count = y.tick_count + 1i64;
             y.state = State::Yellow;
+
+        }
+
+        State::Yellow => {
+            y.tick_count = y.tick_count + 1i64;
+            y.state = State::Green;
 
         }
 

@@ -15,8 +15,8 @@ use std::path::PathBuf;
 
 use pall::compiler::{Compiler, RustBackend};
 use pall::machine::{
-    Action, FloatFmt, FloatValue, FullExpression, FullStatement, State, StateMachine, Transition,
-    Type, Value, Variable, IntegerFmt, IntegerValue,
+    Action, BinaryOperator, Constant, Expression, FloatFmt, FloatValue, FullExpression, FullStatement, Input, Reference, Signal,
+    State, StateMachine, Timer, Transition, Type, Value, Variable, IntegerFmt, IntegerValue,
 };
 
 fn main() {
@@ -31,6 +31,7 @@ fn main() {
         build_bitwise_ops(),
         build_expression_precedence(),
         build_type_casting(),
+        build_signals_and_timers(),
     ];
 
     let output_dir = PathBuf::from("src/bin/runner/generated");
@@ -769,5 +770,182 @@ fn variable_f64(val: f64) -> Variable {
         r#type: Type::F64,
         initial: Some(Value::Float(FloatValue { value: val, fmt: FloatFmt::Decimal })),
         output: false,
+    }
+}
+
+fn constant_i64(val: i64) -> Constant {
+    Constant {
+        r#type: Type::I64,
+        output: false,
+        value: Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Dec }),
+    }
+}
+
+fn constant_u8(val: u8) -> Constant {
+    Constant {
+        r#type: Type::U8,
+        output: false,
+        value: Value::Integer(IntegerValue { value: val as i64, fmt: IntegerFmt::Dec }),
+    }
+}
+
+fn input_i64() -> Input {
+    Input {
+        r#type: Type::I64,
+        link: None,
+        output: true,
+    }
+}
+
+fn signal_u32_mul_counter(val: i64) -> Signal {
+    Signal {
+        r#type: Type::U32,
+        output: false,
+        expr: Expression::Binary(
+            Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+            BinaryOperator::Mul,
+            Box::new(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Dec }))),
+        ),
+    }
+}
+
+fn signal_u32_add_counter(val: i64) -> Signal {
+    Signal {
+        r#type: Type::U32,
+        output: false,
+        expr: Expression::Binary(
+            Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+            BinaryOperator::Add,
+            Box::new(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Dec }))),
+        ),
+    }
+}
+
+fn signal_bool_gte_counter(val: i64) -> Signal {
+    Signal {
+        r#type: Type::Bool,
+        output: false,
+        expr: Expression::Binary(
+            Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+            BinaryOperator::GreaterEqual,
+            Box::new(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Dec }))),
+        ),
+    }
+}
+
+fn timer_when_lt_counter(val: i64) -> Option<Expression> {
+    Some(Expression::Binary(
+        Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+        BinaryOperator::LessThan,
+        Box::new(Expression::Value(Value::Integer(IntegerValue { value: val, fmt: IntegerFmt::Dec }))),
+    ))
+}
+
+fn build_signals_and_timers() -> StateMachine {
+    let mut states = HashMap::new();
+
+    let start_state = State {
+        actions: vec![],
+        transitions: vec![Transition {
+            when: None,
+            r#do: vec![],
+            target: "compute".to_string(),
+        }],
+    };
+    states.insert("start".to_string(), start_state);
+
+    let compute_state = State {
+        actions: vec![Action {
+            when: None,
+            r#do: vec![
+                FullStatement::parse("counter += 1").unwrap(),
+                FullStatement::parse("result_signal = counter * 2 + 5").unwrap(),
+                FullStatement::parse("doubled = counter * 100").unwrap(),
+                FullStatement::parse("flag = counter >= 3").unwrap(),
+            ],
+        }],
+        transitions: vec![Transition {
+            when: Some(FullExpression::parse("counter >= 5").unwrap()),
+            r#do: vec![],
+            target: "done".to_string(),
+        }],
+    };
+    states.insert("compute".to_string(), compute_state);
+
+    let done_state = State {
+        actions: vec![],
+        transitions: vec![],
+    };
+    states.insert("done".to_string(), done_state);
+
+    let mut variables = HashMap::new();
+    variables.insert("counter".to_string(), variable_i64(0));
+    variables.insert("result_signal".to_string(), variable_i64(0));
+    variables.insert("doubled".to_string(), variable_i64(0));
+    variables.insert("flag".to_string(), variable_bool(false));
+    variables.insert("ratio".to_string(), variable_f64(0.0));
+
+    let mut inputs = HashMap::new();
+    inputs.insert("input_val".to_string(), Input {
+        r#type: Type::I64,
+        link: None,
+        output: true,
+    });
+
+    let mut signals = HashMap::new();
+    signals.insert("signal_double_counter".to_string(), Signal {
+        r#type: Type::I64,
+        output: false,
+        expr: Expression::Binary(
+            Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+            BinaryOperator::Mul,
+            Box::new(Expression::Value(Value::Integer(IntegerValue { value: 2, fmt: IntegerFmt::Dec }))),
+        ),
+    });
+    signals.insert("signal_counter_plus_one".to_string(), Signal {
+        r#type: Type::I64,
+        output: false,
+        expr: Expression::Binary(
+            Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+            BinaryOperator::Add,
+            Box::new(Expression::Value(Value::Integer(IntegerValue { value: 1, fmt: IntegerFmt::Dec }))),
+        ),
+    });
+    signals.insert("signal_flag".to_string(), Signal {
+        r#type: Type::Bool,
+        output: false,
+        expr: Expression::Binary(
+            Box::new(Expression::Reference(Reference { target: "counter".to_string() })),
+            BinaryOperator::GreaterEqual,
+            Box::new(Expression::Value(Value::Integer(IntegerValue { value: 3, fmt: IntegerFmt::Dec }))),
+        ),
+    });
+
+    let mut timers = HashMap::new();
+    timers.insert("timer_always".to_string(), Timer {
+        r#type: Type::I64,
+        when: None,
+    });
+    timers.insert("timer_cond".to_string(), Timer {
+        r#type: Type::I64,
+        when: timer_when_lt_counter(10),
+    });
+
+    let mut constants = HashMap::new();
+    constants.insert("large_const".to_string(), constant_i64(1000));
+    constants.insert("small_const".to_string(), constant_u8(10));
+
+    let mut inputs = HashMap::new();
+    inputs.insert("input_val".to_string(), input_i64());
+
+    StateMachine {
+        id: "signals_and_timers".to_string(),
+        initial: Some("start".to_string()),
+        states,
+        inputs,
+        signals,
+        timers,
+        variables,
+        constants,
     }
 }

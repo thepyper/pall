@@ -13,6 +13,7 @@ use super::logic_ops_types::Persistent;
 use super::bitwise_ops_types::Persistent;
 use super::expression_precedence_types::Persistent;
 use super::type_casting_types::Persistent;
+use super::signals_and_timers_types::Persistent;
 use super::counter_test_tick::tick;
 use super::traffic_light_tick::tick;
 use super::binary_counter_tick::tick;
@@ -23,6 +24,7 @@ use super::logic_ops_tick::tick;
 use super::bitwise_ops_tick::tick;
 use super::expression_precedence_tick::tick;
 use super::type_casting_tick::tick;
+use super::signals_and_timers_tick::tick;
 use super::TickInfo;
 use super::error::TickError;
 
@@ -40,6 +42,7 @@ pub struct GroupPersistent {
     pub bitwise_ops: Persistent,
     pub expression_precedence: Persistent,
     pub type_casting: Persistent,
+    pub signals_and_timers: Persistent,
 }
 
 // ── Group Tick Function ────────────────────────────────────────────────────
@@ -71,6 +74,8 @@ pub fn group_tick(
     ys.expression_precedence = tick(&ys.expression_precedence, tick_info)?;
 
     ys.type_casting = tick(&ys.type_casting, tick_info)?;
+
+    ys.signals_and_timers = tick(&ys.signals_and_timers, tick_info)?;
 
     Ok(ys)
 }
