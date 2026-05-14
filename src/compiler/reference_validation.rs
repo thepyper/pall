@@ -9,8 +9,7 @@
 use std::collections::HashMap;
 
 use crate::machine::{
-    Constant, Expression, FullExpression, FullStatement, Input, Signal, StateMachine, Timer, Type,
-    Variable,
+    Expression, FullExpression, FullStatement, StateMachine, Variable,
 };
 
 use super::error::{CompileError, CompileErrorKind};
@@ -131,6 +130,25 @@ fn check_full_expression_refs(
     );
 }
 
+/// Check a plain Expression for unknown references (used for Signal.expr and Timer.when).
+fn check_expression_refs_plain(
+    expr: &Expression,
+    scope: &VariableScope,
+    machine_id: &str,
+    context_name: &str,
+    context: ValidationContext,
+    errors: &mut Vec<CompileError>,
+) {
+    check_expression_refs(
+        expr,
+        scope,
+        machine_id,
+        context_name,
+        context,
+        errors,
+    );
+}
+
 /// Validate that an assignment target is a valid variable.
 fn validate_assignment_target(
     stmt: &FullStatement,
@@ -161,9 +179,9 @@ pub fn validate_references(machine: &StateMachine) -> Vec<CompileError> {
     let mut errors = Vec::new();
     let scope = VariableScope::from_machine(machine);
 
-    // 1. Validate signal expressions
+    // 1. Validate signal expressions (Signal.expr is Expression, not FullExpression)
     for (name, signal) in &machine.signals {
-        check_full_expression_refs(
+        check_expression_refs_plain(
             &signal.expr,
             &scope,
             &machine.id,
@@ -212,8 +230,8 @@ pub fn validate_references(machine: &StateMachine) -> Vec<CompileError> {
                     ValidationContext::TransitionDo,
                     &mut errors,
                 );
-                check_full_expression_refs(
-                    stmt,
+                check_expression_refs(
+                    &stmt.statement.expression,
                     &scope,
                     &machine.id,
                     &context_name_s,
@@ -249,8 +267,8 @@ pub fn validate_references(machine: &StateMachine) -> Vec<CompileError> {
                     ValidationContext::ActionDo,
                     &mut errors,
                 );
-                check_full_expression_refs(
-                    stmt,
+                check_expression_refs(
+                    &stmt.statement.expression,
                     &scope,
                     &machine.id,
                     &context_name_s,
@@ -309,6 +327,10 @@ mod tests {
         }
     }
 
+    fn var_pair(name: &str, ty: Type) -> (String, Type) {
+        (name.to_string(), ty)
+    }
+
     #[test]
     fn test_is_reserved_internal_name() {
         assert!(is_reserved_internal_name("state"));
@@ -333,24 +355,29 @@ mod tests {
 
     #[test]
     fn test_valid_reference_passes() {
-        let machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         let errors = validate_references(&machine);
         assert!(errors.is_empty());
     }
 
     #[test]
     fn test_unknown_reference_in_signal_expression() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
+        let expr = Expression::Binary(
+            Box::new(Expression::Reference(crate::machine::Reference {
+                target: "counter".to_string(),
+            })),
+            crate::machine::BinaryOperator::Add,
+            Box::new(Expression::Reference(crate::machine::Reference {
+                target: "unknown_var".to_string(),
+            })),
+        );
         machine.signals.insert(
             "result".to_string(),
             crate::machine::Signal {
                 r#type: Type::U32,
                 output: false,
-                expr: FullExpression::parse("counter + unknown_var").unwrap(),
+                expr,
             },
         );
         let errors = validate_references(&machine);
@@ -361,9 +388,7 @@ mod tests {
 
     #[test]
     fn test_unknown_reference_in_transition_when() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         let mut initial = machine.states.get_mut("initial").unwrap();
         initial.transitions.push(Transition {
             when: Some(FullExpression::parse("unknown_val > 0").unwrap()),
@@ -377,9 +402,7 @@ mod tests {
 
     #[test]
     fn test_unknown_reference_in_action_do() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         let mut initial = machine.states.get_mut("initial").unwrap();
         initial.actions.push(crate::machine::Action {
             when: None,
@@ -402,15 +425,13 @@ mod tests {
 
     #[test]
     fn test_signal_as_assignment_target() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         machine.signals.insert(
             "flag".to_string(),
             crate::machine::Signal {
                 r#type: Type::Bool,
                 output: false,
-                expr: FullExpression::parse("true").unwrap(),
+                expr: Expression::Value(crate::machine::Value::Bool(true)),
             },
         );
         let mut initial = machine.states.get_mut("initial").unwrap();
@@ -433,9 +454,7 @@ mod tests {
 
     #[test]
     fn test_input_as_assignment_target() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         machine.inputs.insert(
             "input1".to_string(),
             crate::machine::Input {
@@ -464,9 +483,7 @@ mod tests {
 
     #[test]
     fn test_constant_as_assignment_target() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         machine.constants.insert(
             "MAX".to_string(),
             crate::machine::Constant {
@@ -474,7 +491,7 @@ mod tests {
                 output: false,
                 value: crate::machine::Value::Integer(crate::machine::IntegerValue {
                     value: 100,
-                    fmt: IntegerFmt::Dec,
+                    fmt: crate::machine::IntegerFmt::Dec,
                 }),
             },
         );
@@ -498,9 +515,7 @@ mod tests {
 
     #[test]
     fn test_timer_as_assignment_target() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         machine.timers.insert(
             "t1".to_string(),
             crate::machine::Timer {
@@ -517,7 +532,7 @@ mod tests {
                     target: "t1".to_string(),
                     expression: Expression::Value(crate::machine::Value::Integer(crate::machine::IntegerValue {
                         value: 0,
-                        fmt: IntegerFmt::Dec,
+                        fmt: crate::machine::IntegerFmt::Dec,
                     })),
                 },
                 raw: "t1 = 0".to_string(),
@@ -531,9 +546,7 @@ mod tests {
 
     #[test]
     fn test_state_reference_does_not_error() {
-        let machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         // A machine with "state" as a variable would be rejected by reserved name validation,
         // but referencing "state" in an expression should not trigger unknown reference error.
         // We test this by checking the helper function directly.
@@ -542,16 +555,23 @@ mod tests {
 
     #[test]
     fn test_multiple_errors_reported() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         // Add two unknown references in different contexts
+        let signal_expr = Expression::Binary(
+            Box::new(Expression::Reference(crate::machine::Reference {
+                target: "counter".to_string(),
+            })),
+            crate::machine::BinaryOperator::Add,
+            Box::new(Expression::Reference(crate::machine::Reference {
+                target: "foo".to_string(),
+            })),
+        );
         machine.signals.insert(
             "result".to_string(),
             crate::machine::Signal {
                 r#type: Type::U32,
                 output: false,
-                expr: FullExpression::parse("counter + foo").unwrap(),
+                expr: signal_expr,
             },
         );
         let mut initial = machine.states.get_mut("initial").unwrap();
@@ -567,16 +587,15 @@ mod tests {
 
     #[test]
     fn test_nested_expression_reference_check() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         // Deeply nested: (counter + unknown1) * (unknown2 - counter)
+        let expr = FullExpression::parse("(counter + unknown1) * (unknown2 - counter)").unwrap();
         machine.signals.insert(
             "result".to_string(),
             crate::machine::Signal {
                 r#type: Type::U32,
                 output: false,
-                expr: FullExpression::parse("(counter + unknown1) * (unknown2 - counter)").unwrap(),
+                expr: expr.expression,
             },
         );
         let errors = validate_references(&machine);
@@ -586,15 +605,13 @@ mod tests {
 
     #[test]
     fn test_assignment_target_in_action() {
-        let mut machine = make_machine_with_vars(vec![
-            ("counter".to_string(), Type::U32),
-        ]);
+        let mut machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         machine.signals.insert(
             "flag".to_string(),
             crate::machine::Signal {
                 r#type: Type::Bool,
                 output: false,
-                expr: FullExpression::parse("true").unwrap(),
+                expr: Expression::Value(crate::machine::Value::Bool(true)),
             },
         );
         let mut initial = machine.states.get_mut("initial").unwrap();
