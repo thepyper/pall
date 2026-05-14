@@ -203,16 +203,17 @@ impl TypeChecker {
     }
 
     /// Infer type for a variable reference.
+    /// Unknown references are handled by the reference_validation pass with richer context.
+    /// Returns None so downstream expressions short-circuit without producing spurious type errors.
     fn infer_reference(&mut self, _expr: &Expression, ref_: &Reference) -> Option<ExpressionId> {
         let id = self.alloc_id();
         if let Some(ty) = self.scope.get(&ref_.target) {
             self.insert(id, ty.clone());
             Some(id)
         } else {
-            self.errors.push(CompileError::new(
-                super::error::CompileErrorKind::InvalidSignalExpr,
-                format!("unknown variable reference: {}", ref_.target),
-            ));
+            // Unknown references are caught by the reference_validation pass
+            // which provides richer, contextual error messages.
+            // Return None so downstream expressions short-circuit cleanly.
             None
         }
     }

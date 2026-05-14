@@ -61,17 +61,6 @@ impl ValidationContext {
             ValidationContext::ActionDo => "action do",
         }
     }
-
-    fn kind_name(&self) -> &'static str {
-        match self {
-            ValidationContext::Signal => "signal",
-            ValidationContext::TimerWhen => "timer",
-            ValidationContext::TransitionWhen => "transition",
-            ValidationContext::TransitionDo => "transition",
-            ValidationContext::ActionWhen => "action",
-            ValidationContext::ActionDo => "action",
-        }
-    }
 }
 
 // ── Expression walking ────────────────────────────────────────────────────────
@@ -286,7 +275,7 @@ pub fn validate_references(machine: &StateMachine) -> Vec<CompileError> {
 mod tests {
     use super::*;
     use crate::machine::{
-        FullStatement, IntegerFmt, State, StateMachine, Statement as MachineStatement, Transition,
+        FullStatement, IntegerFmt, IntegerValue, State, StateMachine, Statement as MachineStatement, Transition,
         Type, Variable,
     };
     use std::collections::HashMap;
@@ -546,7 +535,6 @@ mod tests {
 
     #[test]
     fn test_state_reference_does_not_error() {
-        let machine = make_machine_with_vars(&[var_pair("counter", Type::U32)]);
         // A machine with "state" as a variable would be rejected by reserved name validation,
         // but referencing "state" in an expression should not trigger unknown reference error.
         // We test this by checking the helper function directly.
