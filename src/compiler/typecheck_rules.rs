@@ -9,7 +9,185 @@
 /// - Int → Float: limited by mantissa size (i16→f32, i32→f64, etc.)
 /// - No signed → unsigned casting
 
-use crate::machine::{BinaryOperator, Type};
+use crate::machine::{BinaryOperator, Type, UnaryOperator, Value};
+
+// ── Candidate sets and resolved types ─────────────────────────────────────────
+
+/// A set of candidate types — all types that can represent a value without loss.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CandidateSet(pub Vec<Type>);
+
+impl CandidateSet {
+    /// Get the best (smallest) candidate type.
+    pub fn best(&self) -> Option<&Type> {
+        self.0.first()
+    }
+
+    /// Check if a type is in this set.
+    pub fn contains(&self, ty: &Type) -> bool {
+        self.0.contains(ty)
+    }
+
+    /// Check if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Iterate over the types in the set.
+    pub fn iter(&self) -> impl Iterator<Item = &Type> {
+        self.0.iter()
+    }
+}
+
+/// The resolved type of an expression — either a definite type or a candidate set.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResolvedType {
+    Definite(Type),
+    Candidates(CandidateSet),
+}
+
+impl ResolvedType {
+    /// Get the type if definite, or the first (best) candidate.
+    pub fn as_type(&self) -> Option<&Type> {
+        match self {
+            ResolvedType::Definite(t) => Some(t),
+            ResolvedType::Candidates(cs) => cs.best(),
+        }
+    }
+
+    /// Convert to a candidate set (wrap definite type in a set).
+    pub fn to_candidates(&self) -> CandidateSet {
+        match self {
+            ResolvedType::Definite(t) => CandidateSet(vec![t.clone()]),
+            ResolvedType::Candidates(cs) => cs.clone(),
+        }
+    }
+}
+
+// ── Value-based candidate type generation ───────────────────────────────────────
+
+/// Get the default type for a value.
+pub fn value_default_type(value: &Value) -> Type {
+    match value {
+        Value::Integer(_) => Type::I64,
+        Value::Float(_) => Type::F64,
+        Value::Bool(_) => Type::Bool,
+        Value::String(_) => Type::String,
+    }
+}
+
+/// Compute the candidate type set for an integer literal value.
+/// Returns all types that can hold the value without loss, ordered smallest-first.
+pub fn candidate_types_for_value(value: i64) -> CandidateSet {
+    let mut candidates = Vec::new();
+    let all_types = [
+        Type::U8, Type::I8, Type::U16, Type::I16,
+        Type::U32, Type::I32, Type::U64, Type::I64,
+        Type::F32, Type::F64,
+    ];
+    for ty in &all_types {
+        if int_value_fits(value, ty) {
+            candidates.push(ty.clone());
+        }
+    }
+    CandidateSet(candidates)
+}
+
+/// Check if an i64 value fits in the given type without loss.
+fn int_value_fits(value: i64, ty: &Type) -> bool {
+    match ty {
+        Type::U8 => value >= 0 && value <= u8::MAX as i64,
+        Type::U16 => value >= 0 && value <= u16::MAX as i64,
+        Type::U32 => value >= 0 && value <= u32::MAX as i64,
+        Type::U64 => value >= 0,
+        Type::I8 => value >= i8::MIN as i64 && value <= i8::MAX as i64,
+        Type::I16 => value >= i16::MIN as i64 && value <= i16::MAX as i64,
+        Type::I32 => value >= i32::MIN as i64 && value <= i32::MAX as i64,
+        Type::I64 => true,
+        Type::F32 => value.abs() <= (1 << 24) as i64,
+        Type::F64 => value.abs() <= (1i64 << 52),
+        _ => false,
+    }
+}
+
+/// Compute the candidate type set for a float literal value.
+/// Float literals only have F32 and F64 as candidates.
+pub fn candidate_types_for_float_value(_value: f64) -> CandidateSet {
+    CandidateSet(vec![Type::F32, Type::F64])
+}
+
+/// Compute the candidate type set for a boolean value.
+pub fn candidate_types_for_bool_value() -> CandidateSet {
+    CandidateSet(vec![Type::Bool])
+}
+
+/// Compute the candidate type set for a constant value.
+pub fn candidate_types_for_constant(value: &Value) -> CandidateSet {
+    match value {
+        Value::Integer(iv) => candidate_types_for_value(iv.value),
+        Value::Float(fv) => candidate_types_for_float_value(fv.value),
+        Value::Bool(_) => candidate_types_for_bool_value(),
+        Value::String(_) => CandidateSet(vec![Type::String]),
+    }
+}
+
+/// Apply unary operator constraints to a candidate set.
+/// Filters candidates to only include types the operator can work with.
+pub fn candidate_types_for_unary(candidates: &CandidateSet, op: UnaryOperator) -> CandidateSet {
+    match op {
+        UnaryOperator::Negate => CandidateSet(
+            candidates.0.iter()
+                .filter(|t| matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64))
+                .cloned()
+                .collect()
+        ),
+        UnaryOperator::BitNot => CandidateSet(
+            candidates.0.iter()
+                .filter(|t| matches!(t, Type::U8 | Type::U16 | Type::U32 | Type::U64))
+                .cloned()
+                .collect()
+        ),
+        UnaryOperator::Not => CandidateSet(vec![Type::Bool]),
+    }
+}
+
+/// Check if a literal/constant value can be assigned to a target type.
+pub fn is_cast_lossless_value(value: &Value, target_type: &Type) -> bool {
+    if value_default_type(value) == *target_type {
+        return true;
+    }
+    match (value, target_type) {
+        (Value::Integer(iv), _) => int_value_fits(iv.value, target_type),
+        (Value::Float(_), Type::F32 | Type::F64) => true,
+        (Value::Float(_), _) => false,
+        (Value::Bool(_), _) => is_numeric_type(target_type),
+        (Value::String(_), Type::String) => true,
+        (Value::String(_), _) => false,
+    }
+}
+
+/// Find the best common type between two candidate sets.
+/// Returns the smallest type that both operand sets can cast to.
+pub fn find_common_type_sets(set_a: &CandidateSet, set_b: &CandidateSet) -> Option<Type> {
+    let all_types = [
+        Type::Bool, Type::U8, Type::U16, Type::U32, Type::U64,
+        Type::I8, Type::I16, Type::I32, Type::I64,
+        Type::F32, Type::F64,
+    ];
+    let candidates: Vec<Type> = all_types.iter()
+        .filter(|target| {
+            set_a.iter().any(|t| is_cast_lossless(t, target))
+                && set_b.iter().any(|t| is_cast_lossless(t, target))
+        })
+        .cloned()
+        .collect();
+    if candidates.is_empty() {
+        return None;
+    }
+    let mut sorted = candidates;
+    sorted.sort_by_key(|t| (get_target_bits(t), !is_unsigned(t) as u8));
+    sorted.first().cloned()
+}
 
 // ── Type classification ───────────────────────────────────────────────────────
 
@@ -146,31 +324,12 @@ pub fn is_cast_lossless(from: &Type, to: &Type) -> bool {
 
 /// Check if integer → float casting is lossless (based on mantissa size).
 fn int_to_float_lossless(int_ty: &Type, float_ty: &Type) -> bool {
-    let int_bits = match int_ty {
-        Type::U8 | Type::I8 => 8,
-        Type::U16 | Type::I16 => 16,
-        Type::U32 | Type::I32 => 32,
-        Type::U64 | Type::I64 => 64,
-        _ => return false,
-    };
-
-    let mantissa_bits = match float_ty {
-        Type::F32 => 23, // f32 has 23-bit mantissa (+ 1 implicit = 24 bits of precision)
-        Type::F64 => 52, // f64 has 52-bit mantissa
-        _ => return false,
-    };
-
-    // For signed integers, we need one extra bit for the sign
-    let is_signed = matches!(int_ty, Type::I8 | Type::I16 | Type::I32 | Type::I64);
-    let needed_bits = if is_signed { int_bits } else { int_bits };
-
-    // u8/u16 can fit in f32 mantissa (24 bits including implicit bit)
-    // i8/i16 can fit in f32 (needs sign + value, 8 bits total for signed)
-    // u32/i32 can fit in f64 mantissa (52 bits)
-    // i64/u64 cannot fit in f64 (64 > 52 bits)
     match (int_ty, float_ty) {
+        // u8/u16/i8/i16 can fit in f32 mantissa (24 bits including implicit)
         (Type::U8 | Type::I8 | Type::U16 | Type::I16, Type::F32) => true,
+        // u32/i32 can fit in f64 mantissa (52 bits)
         (Type::U32 | Type::I32, Type::F64) => true,
+        // Small ints can also cast to f64
         (Type::U8 | Type::I8, Type::F64) => true,
         (Type::U16 | Type::I16, Type::F64) => true,
         _ => false,
@@ -178,47 +337,28 @@ fn int_to_float_lossless(int_ty: &Type, float_ty: &Type) -> bool {
 }
 
 /// Check if integer → integer casting is lossless.
+/// Uses explicit type matching — no bit-counting magic.
 fn int_to_int_lossless(from: &Type, to: &Type) -> bool {
-    let from_bits = match from {
-        Type::U8 | Type::I8 => 8,
-        Type::U16 | Type::I16 => 16,
-        Type::U32 | Type::I32 => 32,
-        Type::U64 | Type::I64 => 64,
-        _ => return false,
-    };
-
-    let to_bits = match to {
-        Type::U8 | Type::I8 => 8,
-        Type::U16 | Type::I16 => 16,
-        Type::U32 | Type::I32 => 32,
-        Type::U64 | Type::I64 => 64,
-        _ => return false,
-    };
-
-    let from_unsigned = matches!(from, Type::U8 | Type::U16 | Type::U32 | Type::U64);
-    let to_unsigned = matches!(to, Type::U8 | Type::U16 | Type::U32 | Type::U64);
-
-    // Never allow signed → unsigned (sign conversion is not lossless)
-    if !from_unsigned && to_unsigned {
-        return false;
+    if from == to {
+        return true;
     }
-
-    // Same sign: target must be strictly larger (or equal, but equal is handled above)
-    if from_unsigned == to_unsigned {
-        to_bits > from_bits
-    } else {
-        // from unsigned → to signed: target must be able to hold all values of source
-        // e.g., u8 → i16 is OK (i16 can hold 0..255), u8 → i8 is NOT (i8 can only hold 0..127)
-        // u16 → i32 is OK, u32 → i64 is OK
-        // In general: unsigned N → signed M is OK if M_bits >= N_bits + 1 (for sign bit)
-        // But i64 can hold all u64 values... wait, no. u64 max = 2^64-1, i64 max = 2^63-1
-        // So u64 → i64 is NOT lossless for values > 2^63-1
-        //
-        // Rule: unsigned N → signed M is OK only if M_bits > N_bits (strictly larger)
-        // OR if N_bits < M_bits - 1 (leaving room for sign bit)
-        // Simplified: u8→i16(16>8✓), u16→i32(32>16✓), u32→i64(64>32✓)
-        // Not: u64→i64(64=64✗), u16→i16(16=16✗, but this is same sign, handled above)
-        to_bits > from_bits + 1 || (to_bits >= from_bits && to_bits == 64 && from_bits < 64)
+    match (from, to) {
+        // Unsigned → larger unsigned
+        (Type::U8, Type::U16 | Type::U32 | Type::U64) => true,
+        (Type::U16, Type::U32 | Type::U64) => true,
+        (Type::U32, Type::U64) => true,
+        // Unsigned → larger signed (target must hold ALL unsigned values)
+        (Type::U8, Type::I16 | Type::I32 | Type::I64) => true,
+        (Type::U16, Type::I32 | Type::I64) => true,
+        (Type::U32, Type::I64) => true,
+        // Signed → larger signed
+        (Type::I8, Type::I16 | Type::I32 | Type::I64) => true,
+        (Type::I16, Type::I32 | Type::I64) => true,
+        (Type::I32, Type::I64) => true,
+        // Never: signed → unsigned (sign conversion is not lossless)
+        (Type::I8 | Type::I16 | Type::I32 | Type::I64, Type::U8 | Type::U16 | Type::U32 | Type::U64) => false,
+        // Catch-all: no other casts allowed
+        _ => false,
     }
 }
 
@@ -268,44 +408,7 @@ pub fn find_common_type(from: &Type, to: &Type) -> Option<Type> {
 
 /// Find a common numeric type for two numeric types.
 fn find_common_numeric_type(from: &Type, to: &Type) -> Option<Type> {
-    let candidates: Vec<Type> = (0_u8..=10)
-        .filter_map(|target_ty| {
-            let target = numeric_type_from_u8(target_ty)?;
-            if is_cast_lossless(from, &target) && is_cast_lossless(to, &target) {
-                Some(target)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    if candidates.is_empty() {
-        return None;
-    }
-
-    // Sort by bits, then prefer unsigned for same bit count
-    let mut sorted = candidates;
-    sorted.sort_by_key(|t| (get_target_bits(t), !is_unsigned(t) as u8));
-
-    sorted.first().cloned()
-}
-
-/// Convert a u8 index to a Type variant.
-fn numeric_type_from_u8(n: u8) -> Option<Type> {
-    match n {
-        0 => Some(Type::Bool),
-        1 => Some(Type::U8),
-        2 => Some(Type::U16),
-        3 => Some(Type::U32),
-        4 => Some(Type::U64),
-        5 => Some(Type::I8),
-        6 => Some(Type::I16),
-        7 => Some(Type::I32),
-        8 => Some(Type::I64),
-        9 => Some(Type::F32),
-        10 => Some(Type::F64),
-        _ => None,
-    }
+    find_common_type_sets(&CandidateSet(vec![from.clone()]), &CandidateSet(vec![to.clone()]))
 }
 
 // ── Operator-specific type compatibility ──────────────────────────────────────
@@ -701,5 +804,187 @@ mod tests {
         // i64: ±2^63, f64 mantissa: 52 bits → cannot represent all i64 perfectly
         assert!(!is_cast_lossless(&Type::I64, &Type::F64));
         assert!(!is_cast_lossless(&Type::U64, &Type::F64));
+    }
+
+    // ── Candidate set tests ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_candidate_types_for_value_positive() {
+        let cs = candidate_types_for_value(42);
+        // 42 fits in all integer types and floats
+        assert!(cs.contains(&Type::U8));
+        assert!(cs.contains(&Type::I8));
+        assert!(cs.contains(&Type::U16));
+        assert!(cs.contains(&Type::I16));
+        assert!(cs.contains(&Type::U32));
+        assert!(cs.contains(&Type::I32));
+        assert!(cs.contains(&Type::U64));
+        assert!(cs.contains(&Type::I64));
+        assert!(cs.contains(&Type::F32));
+        assert!(cs.contains(&Type::F64));
+        // Smallest is U8
+        assert_eq!(cs.best(), Some(&Type::U8));
+    }
+
+    #[test]
+    fn test_candidate_types_for_value_negative() {
+        let cs = candidate_types_for_value(-42);
+        // -42 doesn't fit in unsigned types
+        assert!(!cs.contains(&Type::U8));
+        assert!(!cs.contains(&Type::U16));
+        assert!(!cs.contains(&Type::U32));
+        assert!(!cs.contains(&Type::U64));
+        // Fits in signed types and floats
+        assert!(cs.contains(&Type::I8));
+        assert!(cs.contains(&Type::I16));
+        assert!(cs.contains(&Type::I32));
+        assert!(cs.contains(&Type::I64));
+        assert!(cs.contains(&Type::F32));
+        assert!(cs.contains(&Type::F64));
+        // Smallest is I8
+        assert_eq!(cs.best(), Some(&Type::I8));
+    }
+
+    #[test]
+    fn test_candidate_types_for_value_zero() {
+        let cs = candidate_types_for_value(0);
+        // 0 fits in all types
+        assert_eq!(cs.0.len(), 10);
+        assert_eq!(cs.best(), Some(&Type::U8));
+    }
+
+    #[test]
+    fn test_candidate_types_for_unary_negate() {
+        let int_cs = candidate_types_for_value(42);
+        let filtered = candidate_types_for_unary(&int_cs, UnaryOperator::Negate);
+        // Negate filters to signed types
+        assert!(!filtered.contains(&Type::U8));
+        assert!(!filtered.contains(&Type::U16));
+        assert!(!filtered.contains(&Type::U32));
+        assert!(!filtered.contains(&Type::U64));
+        assert!(filtered.contains(&Type::I8));
+        assert!(filtered.contains(&Type::I16));
+        assert!(filtered.contains(&Type::I32));
+        assert!(filtered.contains(&Type::I64));
+        assert!(filtered.contains(&Type::F32));
+        assert!(filtered.contains(&Type::F64));
+    }
+
+    #[test]
+    fn test_candidate_types_for_unary_bitnot() {
+        let cs = candidate_types_for_value(5);
+        let filtered = candidate_types_for_unary(&cs, UnaryOperator::BitNot);
+        // BitNot filters to unsigned integers only
+        assert!(!filtered.contains(&Type::I8));
+        assert!(!filtered.contains(&Type::I16));
+        assert!(!filtered.contains(&Type::I32));
+        assert!(!filtered.contains(&Type::I64));
+        assert!(!filtered.contains(&Type::F32));
+        assert!(!filtered.contains(&Type::F64));
+        assert!(filtered.contains(&Type::U8));
+        assert!(filtered.contains(&Type::U16));
+        assert!(filtered.contains(&Type::U32));
+        assert!(filtered.contains(&Type::U64));
+    }
+
+    #[test]
+    fn test_candidate_types_for_unary_logical_not() {
+        let cs = candidate_types_for_value(42);
+        let filtered = candidate_types_for_unary(&cs, UnaryOperator::Not);
+        // Logical NOT always produces Bool
+        assert_eq!(filtered, CandidateSet(vec![Type::Bool]));
+    }
+
+    #[test]
+    fn test_find_common_type_sets_signed_unsigned() {
+        // -42 candidates ∩ U8 candidates → I16 (smallest common)
+        let signed = candidate_types_for_value(-42);
+        let unsigned = CandidateSet(vec![Type::U8]);
+        let common = find_common_type_sets(&signed, &unsigned);
+        assert_eq!(common, Some(Type::I16));
+    }
+
+    #[test]
+    fn test_find_common_type_sets_no_common() {
+        // F32 and U64 have no common type (U64 cannot cast to F32, F32 cannot cast to U64)
+        let float = CandidateSet(vec![Type::F32]);
+        let big = CandidateSet(vec![Type::U64]);
+        let common = find_common_type_sets(&float, &big);
+        assert!(common.is_none());
+    }
+
+    #[test]
+    fn test_find_common_type_sets_small_signed_unsigned() {
+        // I8 and U8 have common type I16 (I8→I16 OK, U8→I16 OK)
+        let signed = CandidateSet(vec![Type::I8]);
+        let unsigned = CandidateSet(vec![Type::U8]);
+        let common = find_common_type_sets(&signed, &unsigned);
+        assert_eq!(common, Some(Type::I16));
+    }
+
+    #[test]
+    fn test_is_cast_lossless_value() {
+        use crate::machine::{FloatFmt, FloatValue, IntegerFmt, IntegerValue, StringFmt, StringValue};
+        // 42 fits in U8
+        assert!(is_cast_lossless_value(
+            &Value::Integer(IntegerValue { value: 42, fmt: IntegerFmt::Dec }),
+            &Type::U8
+        ));
+        // -42 does NOT fit in U8
+        assert!(!is_cast_lossless_value(
+            &Value::Integer(IntegerValue { value: -42, fmt: IntegerFmt::Dec }),
+            &Type::U8
+        ));
+        // -42 fits in I8
+        assert!(is_cast_lossless_value(
+            &Value::Integer(IntegerValue { value: -42, fmt: IntegerFmt::Dec }),
+            &Type::I8
+        ));
+        // Float 3.14 fits in F64
+        assert!(is_cast_lossless_value(
+            &Value::Float(FloatValue { value: 3.14, fmt: FloatFmt::Decimal }),
+            &Type::F64
+        ));
+        // Float does NOT fit in integer
+        assert!(!is_cast_lossless_value(
+            &Value::Float(FloatValue { value: 3.14, fmt: FloatFmt::Decimal }),
+            &Type::U8
+        ));
+        // Bool fits in numeric
+        assert!(is_cast_lossless_value(
+            &Value::Bool(true),
+            &Type::U8
+        ));
+    }
+
+    #[test]
+    fn test_value_default_type() {
+        use crate::machine::{FloatFmt, FloatValue, IntegerFmt, IntegerValue, StringFmt, StringValue};
+        assert_eq!(value_default_type(&Value::Integer(IntegerValue { value: 42, fmt: IntegerFmt::Dec })), Type::I64);
+        assert_eq!(value_default_type(&Value::Float(FloatValue { value: 3.14, fmt: FloatFmt::Decimal })), Type::F64);
+        assert_eq!(value_default_type(&Value::Bool(true)), Type::Bool);
+        assert_eq!(value_default_type(&Value::String(StringValue { value: "hello".into(), fmt: StringFmt::DoubleQuote })), Type::String);
+    }
+
+    #[test]
+    fn test_int_to_int_lossless_match() {
+        // Unsigned → larger unsigned
+        assert!(int_to_int_lossless(&Type::U8, &Type::U16));
+        assert!(int_to_int_lossless(&Type::U8, &Type::U32));
+        assert!(int_to_int_lossless(&Type::U16, &Type::U32));
+        assert!(int_to_int_lossless(&Type::U32, &Type::U64));
+        // Unsigned → larger signed
+        assert!(int_to_int_lossless(&Type::U8, &Type::I16));
+        assert!(int_to_int_lossless(&Type::U8, &Type::I32));
+        assert!(int_to_int_lossless(&Type::U16, &Type::I32));
+        assert!(int_to_int_lossless(&Type::U32, &Type::I64));
+        // Signed → larger signed
+        assert!(int_to_int_lossless(&Type::I8, &Type::I16));
+        assert!(int_to_int_lossless(&Type::I8, &Type::I32));
+        assert!(int_to_int_lossless(&Type::I32, &Type::I64));
+        // Never signed → unsigned
+        assert!(!int_to_int_lossless(&Type::I8, &Type::U8));
+        assert!(!int_to_int_lossless(&Type::I32, &Type::U32));
+        assert!(!int_to_int_lossless(&Type::I64, &Type::U64));
     }
 }
