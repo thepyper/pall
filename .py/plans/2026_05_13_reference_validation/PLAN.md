@@ -51,15 +51,15 @@
   - Unknown reference in action do
   - Multiple errors reported at once
 
-## Phase 4: Integrate into existing type_validation.rs
+## Phase 4: Clean up existing duplicate/error-prone code
 
-### Step 4.1: Remove duplicate unknown reference handling from typecheck
+### Step 4.1: Remove duplicate unknown reference error from typecheck
 - **File**: `src/compiler/typecheck.rs`
-- **Action**: In `infer_reference()`, keep the generic error but it will now be superseded by the contextual pass. Optionally remove it or keep as a fallback. Decision: remove it since the new pass provides richer errors.
+- **Action**: In `infer_reference()`, remove the error push for unknown references. The new reference validation pass provides richer, contextual errors. This avoids duplicate error messages.
 
-### Step 4.2: Remove duplicate assignment target handling from type_validation
+### Step 4.2: Fix type_validation.rs to skip non-variable assignment targets
 - **File**: `src/compiler/type_validation.rs`
-- **Action**: Remove any assignment target type-checking that overlaps with the new pass. The `get_target_type` function already returns `None` for unknown targets, so the type validation won't report on them — the new pass handles it.
+- **Action**: In `validate_assignment()`, add a check that the target must be a variable (not signal, timer, input, or constant). If not, skip the type check entirely — the new reference validation pass handles the error reporting. This prevents the type validator from silently allowing signal/timer/input assignments when types happen to be compatible.
 
 ## Phase 5: Final verification
 
