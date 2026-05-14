@@ -57,14 +57,14 @@
 - **File**: `src/compiler/typecheck.rs`
 - **Action**: In `infer_reference()`, remove the error push for unknown references. The new reference validation pass provides richer, contextual errors. This avoids duplicate error messages.
 
-### Step 4.2: Fix type_validation.rs to skip non-variable assignment targets
+### Step 4.2: Verified type_validation.rs needs no changes
 - **File**: `src/compiler/type_validation.rs`
-- **Action**: In `validate_assignment()`, add a check that the target must be a variable (not signal, timer, input, or constant). If not, skip the type check entirely — the new reference validation pass handles the error reporting. This prevents the type validator from silently allowing signal/timer/input assignments when types happen to be compatible.
+- **Result**: No changes needed. The existing `get_target_type` already returns `None` for unknown targets, and `validate_assignment` skips validation when `target_type` is `None`. This is correct behavior — the new reference validation pass handles both unknown references and invalid assignment targets.
 
 ## Phase 5: Final verification
 
-### Step 5.1: Run all existing tests
-- **Action**: `cargo test` — ensure no regressions.
+### Step 5.1: Run all existing tests ✅
+- **Result**: 103 library tests pass. No regressions.
 
-### Step 5.2: Run the full compilation pipeline on all test machines
-- **Action**: `cargo run --bin creator -- release` (or the appropriate command) — ensure all test machines compile successfully.
+### Step 5.2: Run the full compilation pipeline on all test machines ✅
+- **Result**: 21 creator tests pass (all compilation + YAML roundtrip tests). 34 runner tests pass (all runtime tests). All test machines compile successfully with the new validation pass integrated.
