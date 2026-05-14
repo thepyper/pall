@@ -132,22 +132,54 @@ pub fn candidate_types_for_constant(value: &Value) -> CandidateSet {
 }
 
 /// Apply unary operator constraints to a candidate set.
-/// Filters candidates to only include types the operator can work with.
+/// For each candidate type, finds the smallest operator-compatible type it can cast to.
+/// For literals: filters the candidate set to operator-compatible types.
+/// For typed references: finds the cast target in the operator's allowed set.
 pub fn candidate_types_for_unary(candidates: &CandidateSet, op: UnaryOperator) -> CandidateSet {
     match op {
-        UnaryOperator::Negate => CandidateSet(
-            candidates.0.iter()
-                .filter(|t| matches!(t, Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::F32 | Type::F64))
-                .cloned()
-                .collect()
-        ),
-        UnaryOperator::BitNot => CandidateSet(
-            candidates.0.iter()
-                .filter(|t| matches!(t, Type::U8 | Type::U16 | Type::U32 | Type::U64))
-                .cloned()
-                .collect()
-        ),
-        UnaryOperator::Not => CandidateSet(vec![Type::Bool]),
+        UnaryOperator::Not => {
+            // Logical NOT always produces Bool
+            if candidates.iter().all(|t| is_truthy_type(t)) {
+                CandidateSet(vec![Type::Bool])
+            } else {
+                CandidateSet(vec![])
+            }
+        }
+        UnaryOperator::Negate => {
+            // Negation produces signed types. Find the smallest signed type each candidate can cast to.
+            let signed_types = [
+                Type::I8, Type::I16, Type::I32, Type::I64, Type::F32, Type::F64,
+            ];
+            let mut result = Vec::new();
+            for inner_ty in &candidates.0 {
+                for target in &signed_types {
+                    if is_cast_lossless(inner_ty, target) && !result.contains(target) {
+                        result.push(target.clone());
+                    }
+                }
+            }
+            // Sort by bits, prefer smaller
+            result.sort_by_key(|t| get_target_bits(t));
+            CandidateSet(result)
+        }
+        UnaryOperator::BitNot => {
+            // Bitwise NOT works on any integer type (signed or unsigned), keeps same type.
+            // Filter to integer types, keeping the same types from candidates.
+            let int_types = [
+                Type::U8, Type::I8, Type::U16, Type::I16,
+                Type::U32, Type::I32, Type::U64, Type::I64,
+            ];
+            let mut result = Vec::new();
+            for inner_ty in &candidates.0 {
+                for target in &int_types {
+                    if is_cast_lossless(inner_ty, target) && !result.contains(target) {
+                        result.push(target.clone());
+                    }
+                }
+            }
+            result.sort_by_key(|t| get_target_bits(t));
+            CandidateSet(result)
+        }
     }
 }
 
@@ -874,17 +906,18 @@ mod tests {
     fn test_candidate_types_for_unary_bitnot() {
         let cs = candidate_types_for_value(5);
         let filtered = candidate_types_for_unary(&cs, UnaryOperator::BitNot);
-        // BitNot filters to unsigned integers only
-        assert!(!filtered.contains(&Type::I8));
-        assert!(!filtered.contains(&Type::I16));
-        assert!(!filtered.contains(&Type::I32));
-        assert!(!filtered.contains(&Type::I64));
+        // BitNot works on any integer type (signed or unsigned)
+        assert!(filtered.contains(&Type::U8));
+        assert!(filtered.contains(&Type::I8));
+        assert!(filtered.contains(&Type::U16));
+        assert!(filtered.contains(&Type::I16));
+        assert!(filtered.contains(&Type::U32));
+        assert!(filtered.contains(&Type::I32));
+        assert!(filtered.contains(&Type::U64));
+        assert!(filtered.contains(&Type::I64));
+        // Floats are not integers
         assert!(!filtered.contains(&Type::F32));
         assert!(!filtered.contains(&Type::F64));
-        assert!(filtered.contains(&Type::U8));
-        assert!(filtered.contains(&Type::U16));
-        assert!(filtered.contains(&Type::U32));
-        assert!(filtered.contains(&Type::U64));
     }
 
     #[test]

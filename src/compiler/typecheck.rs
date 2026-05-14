@@ -25,8 +25,9 @@ pub type ExpressionId = usize;
 
 // ── TypeEnv ───────────────────────────────────────────────────────────────────
 
-/// Maps ExpressionId → Type for all expressions in a machine.
-pub type TypeEnv = HashMap<ExpressionId, Type>;
+/// Maps ExpressionId → ResolvedType for all expressions in a machine.
+/// ResolvedType is either a definite type or a candidate set (for literals/constants).
+pub type TypeEnv = HashMap<ExpressionId, ResolvedType>;
 
 // ── VariableScope ─────────────────────────────────────────────────────────────
 
@@ -89,7 +90,9 @@ pub struct TypeChecker {
     next_id: ExpressionId,
     /// Scope for variable lookups.
     scope: VariableScope,
-    /// Inferred types: ExpressionId → Type.
+    /// Constants map (for value-based candidate resolution).
+    constants: HashMap<String, Constant>,
+    /// Inferred types: ExpressionId → ResolvedType.
     env: TypeEnv,
     /// Errors encountered during inference.
     errors: Vec<CompileError>,
@@ -97,10 +100,11 @@ pub struct TypeChecker {
 
 impl TypeChecker {
     /// Create a new TypeChecker for a machine.
-    pub fn new(scope: VariableScope) -> Self {
+    pub fn new(scope: VariableScope, constants: HashMap<String, Constant>) -> Self {
         Self {
             next_id: 0,
             scope,
+            constants,
             env: HashMap::new(),
             errors: Vec::new(),
         }
@@ -113,13 +117,13 @@ impl TypeChecker {
         id
     }
 
-    /// Insert a type into the environment.
-    fn insert(&mut self, id: ExpressionId, ty: Type) {
-        self.env.insert(id, ty);
+    /// Insert a resolved type into the environment.
+    fn insert(&mut self, id: ExpressionId, resolved: ResolvedType) {
+        self.env.insert(id, resolved);
     }
 
-    /// Get a type from the environment.
-    fn get(&self, id: ExpressionId) -> Option<&Type> {
+    /// Get a resolved type from the environment.
+    fn get(&self, id: ExpressionId) -> Option<&ResolvedType> {
         self.env.get(&id)
     }
 
@@ -129,22 +133,32 @@ impl TypeChecker {
         mut self,
         machine: &StateMachine,
     ) -> (TypeEnv, Vec<CompileError>) {
-        // Infer types for all expressions in the machine
+        // Infer types for all expressions in the machine.
+        // All HashMap iterations are sorted by key for deterministic ExpressionId assignment.
 
         // 1. Signal expressions
-        for (_name, signal) in &machine.signals {
+        let mut signal_names: Vec<_> = machine.signals.keys().collect();
+        signal_names.sort();
+        for name in signal_names {
+            let signal = machine.signals.get(name).unwrap();
             self.infer_expression(&signal.expr);
         }
 
         // 2. Timer when expressions (Timer.when is Expression, not FullExpression)
-        for (_name, timer) in &machine.timers {
+        let mut timer_names: Vec<_> = machine.timers.keys().collect();
+        timer_names.sort();
+        for name in timer_names {
+            let timer = machine.timers.get(name).unwrap();
             if let Some(ref when_expr) = timer.when {
                 self.infer_expression(when_expr);
             }
         }
 
-        // 3. Transition when + do expressions
-        for (_state_name, state) in &machine.states {
+        // 3. Transition when + do expressions (sorted for deterministic IDs)
+        let mut state_names: Vec<_> = machine.states.keys().cloned().collect();
+        state_names.sort();
+        for state_name in &state_names {
+            let state = machine.states.get(state_name).unwrap();
             for transition in &state.transitions {
                 if let Some(ref when_expr) = transition.when {
                     self.infer_expression(&when_expr.expression);
@@ -155,8 +169,9 @@ impl TypeChecker {
             }
         }
 
-        // 4. Action when + do expressions
-        for (_state_name, state) in &machine.states {
+        // 4. Action when + do expressions (same sorted order)
+        for state_name in &state_names {
+            let state = machine.states.get(state_name).unwrap();
             for action in &state.actions {
                 if let Some(ref when_expr) = action.when {
                     self.infer_expression(&when_expr.expression);
@@ -181,34 +196,33 @@ impl TypeChecker {
         }
     }
 
-    /// Infer type for a value literal.
+    /// Infer type for a value literal — emits candidate set based on value.
     fn infer_value(&mut self, _expr: &Expression, val: &Value) -> Option<ExpressionId> {
         let id = self.alloc_id();
-        let ty = match val {
-            Value::Integer(iv) => {
-                // Check if the value fits in i64
-                if iv.value >= i64::MIN as i64 && iv.value <= i64::MAX as i64 {
-                    Type::I64
-                } else {
-                    // Value overflows i64 — use u64
-                    Type::U64
-                }
-            }
-            Value::Float(_) => Type::F64,
-            Value::String(_) => Type::String,
-            Value::Bool(_) => Type::Bool,
+        let candidates = match val {
+            Value::Integer(iv) => candidate_types_for_value(iv.value),
+            Value::Float(fv) => candidate_types_for_float_value(fv.value),
+            Value::Bool(_) => candidate_types_for_bool_value(),
+            Value::String(_) => CandidateSet(vec![Type::String]),
         };
-        self.insert(id, ty);
+        self.insert(id, ResolvedType::Candidates(candidates));
         Some(id)
     }
 
     /// Infer type for a variable reference.
-    /// Unknown references are handled by the reference_validation pass with richer context.
-    /// Returns None so downstream expressions short-circuit without producing spurious type errors.
+    /// Constants use value-based candidates (ignoring declared type).
+    /// Unknown references are handled by the reference_validation pass.
     fn infer_reference(&mut self, _expr: &Expression, ref_: &Reference) -> Option<ExpressionId> {
         let id = self.alloc_id();
+        // Constants always use value-based candidates (ignoring declared type)
+        if let Some(constant) = self.constants.get(&ref_.target) {
+            let candidates = candidate_types_for_constant(&constant.value);
+            self.insert(id, ResolvedType::Candidates(candidates));
+            return Some(id);
+        }
+        // Regular references use declared type
         if let Some(ty) = self.scope.get(&ref_.target) {
-            self.insert(id, ty.clone());
+            self.insert(id, ResolvedType::Definite(ty.clone()));
             Some(id)
         } else {
             // Unknown references are caught by the reference_validation pass
@@ -225,13 +239,13 @@ impl TypeChecker {
         inner: &Expression,
     ) -> Option<ExpressionId> {
         let inner_id = self.infer_expression(inner)?;
-        let inner_ty = self.get(inner_id)?.clone();
+        let inner_resolved = self.get(inner_id)?.clone();
         let id = self.alloc_id();
-        self.insert(id, inner_ty);
+        self.insert(id, inner_resolved);
         Some(id)
     }
 
-    /// Infer type for a unary operation.
+    /// Infer type for a unary operation — filters candidates through operator constraints.
     fn infer_unary(
         &mut self,
         _expr: &Expression,
@@ -239,51 +253,51 @@ impl TypeChecker {
         inner: &Expression,
     ) -> Option<ExpressionId> {
         let inner_id = self.infer_expression(inner)?;
-        let inner_ty = self.get(inner_id)?.clone();
+        let inner_resolved = self.get(inner_id)?;
+        let inner_candidates = inner_resolved.to_candidates();
         let id = self.alloc_id();
 
-        let result_ty = match op {
-            UnaryOperator::Negate => {
-                // Negate requires signed numeric type
-                if !is_numeric_type(&inner_ty) {
-                    self.errors.push(CompileError::new(
-                        super::error::CompileErrorKind::InvalidSignalExpr,
-                        format!("negation requires numeric type, got {:?}", inner_ty),
-                    ));
-                    return None;
-                }
-                // Result is same type as operand (signed numeric)
-                inner_ty
-            }
+        let result_resolved = match op {
             UnaryOperator::Not => {
-                // Not requires truthy type (Bool or numeric)
-                if !is_truthy_type(&inner_ty) {
+                // Logical NOT always produces Bool
+                if !is_truthy_candidate_set(&inner_candidates) {
                     self.errors.push(CompileError::new(
                         super::error::CompileErrorKind::InvalidSignalExpr,
-                        format!("logical not requires truthy type, got {:?}", inner_ty),
+                        format!("logical not requires truthy type, got {:?}", inner_candidates),
                     ));
                     return None;
                 }
-                Type::Bool
+                ResolvedType::Definite(Type::Bool)
+            }
+            UnaryOperator::Negate => {
+                let filtered = candidate_types_for_unary(&inner_candidates, UnaryOperator::Negate);
+                if filtered.is_empty() {
+                    self.errors.push(CompileError::new(
+                        super::error::CompileErrorKind::InvalidSignalExpr,
+                        format!("negation requires signed type, got {:?}", inner_candidates),
+                    ));
+                    return None;
+                }
+                ResolvedType::Candidates(filtered)
             }
             UnaryOperator::BitNot => {
-                // BitNot requires integer type (not float, not Bool)
-                if !is_integer_type(&inner_ty) {
+                let filtered = candidate_types_for_unary(&inner_candidates, UnaryOperator::BitNot);
+                if filtered.is_empty() {
                     self.errors.push(CompileError::new(
                         super::error::CompileErrorKind::InvalidSignalExpr,
-                        format!("bitwise not requires integer type, got {:?}", inner_ty),
+                        format!("bitwise not requires unsigned integer type, got {:?}", inner_candidates),
                     ));
                     return None;
                 }
-                inner_ty
+                ResolvedType::Candidates(filtered)
             }
         };
 
-        self.insert(id, result_ty);
+        self.insert(id, result_resolved);
         Some(id)
     }
 
-    /// Infer type for a binary operation.
+    /// Infer type for a binary operation — uses candidate set intersection.
     fn infer_binary(
         &mut self,
         _expr: &Expression,
@@ -293,23 +307,75 @@ impl TypeChecker {
     ) -> Option<ExpressionId> {
         let left_id = self.infer_expression(left)?;
         let right_id = self.infer_expression(right)?;
-        let left_ty = self.get(left_id)?.clone();
-        let right_ty = self.get(right_id)?.clone();
+        let left_resolved = self.get(left_id)?;
+        let right_resolved = self.get(right_id)?;
+        let left_candidates = left_resolved.to_candidates();
+        let right_candidates = right_resolved.to_candidates();
         let id = self.alloc_id();
 
-        // Check operator-specific type compatibility
-        if let Some(result_ty) = check_operator_compatibility(&left_ty, &right_ty, op) {
-            self.insert(id, result_ty);
-            Some(id)
-        } else {
-            self.errors.push(CompileError::new(
-                super::error::CompileErrorKind::InvalidSignalExpr,
-                format!(
-                    "operator {:?} incompatible with types {:?} and {:?}",
-                    op, left_ty, right_ty
-                ),
-            ));
-            None
+        match op {
+            // Logical operators: both operands must be truthy, result is Bool
+            BinaryOperator::LogicalAnd
+            | BinaryOperator::LogicalOr
+            | BinaryOperator::LogicalXor => {
+                if is_truthy_candidate_set(&left_candidates) && is_truthy_candidate_set(&right_candidates) {
+                    self.insert(id, ResolvedType::Definite(Type::Bool));
+                    Some(id)
+                } else {
+                    self.errors.push(CompileError::new(
+                        super::error::CompileErrorKind::InvalidSignalExpr,
+                        format!(
+                            "operator {:?} requires truthy operands, got {:?} and {:?}",
+                            op, left_candidates, right_candidates
+                        ),
+                    ));
+                    None
+                }
+            }
+            // Comparison operators: operands get common type, result is Bool
+            BinaryOperator::Equal
+            | BinaryOperator::NotEqual
+            | BinaryOperator::LessThan
+            | BinaryOperator::LessEqual
+            | BinaryOperator::GreaterThan
+            | BinaryOperator::GreaterEqual => {
+                match find_common_type_sets(&left_candidates, &right_candidates) {
+                    Some(_common) => {
+                        // Result is Bool (comparison result)
+                        self.insert(id, ResolvedType::Definite(Type::Bool));
+                        Some(id)
+                    }
+                    None => {
+                        self.errors.push(CompileError::new(
+                            super::error::CompileErrorKind::InvalidSignalExpr,
+                            format!(
+                                "operator {:?} incompatible with types {:?} and {:?}",
+                                op, left_candidates, right_candidates
+                            ),
+                        ));
+                        None
+                    }
+                }
+            }
+            // Arithmetic, bitwise: result is common type
+            _ => {
+                match find_common_type_sets(&left_candidates, &right_candidates) {
+                    Some(result_ty) => {
+                        self.insert(id, ResolvedType::Definite(result_ty));
+                        Some(id)
+                    }
+                    None => {
+                        self.errors.push(CompileError::new(
+                            super::error::CompileErrorKind::InvalidSignalExpr,
+                            format!(
+                                "operator {:?} incompatible with types {:?} and {:?}",
+                                op, left_candidates, right_candidates
+                            ),
+                        ));
+                        None
+                    }
+                }
+            }
         }
     }
 
@@ -325,11 +391,17 @@ impl TypeChecker {
     }
 }
 
+/// Check if all candidates in a set are truthy types.
+fn is_truthy_candidate_set(candidates: &CandidateSet) -> bool {
+    !candidates.is_empty() && candidates.iter().all(|t| is_truthy_type(t))
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /// Infer types for all expressions in all machines.
 ///
 /// Returns a vector of (TypeEnv, errors) pairs, one per machine.
+/// TypeEnv maps ExpressionId → ResolvedType (either definite or candidate set).
 pub fn infer_all(
     machines: &[StateMachine],
 ) -> Vec<(TypeEnv, Vec<CompileError>)> {
@@ -337,7 +409,8 @@ pub fn infer_all(
         .iter()
         .map(|machine| {
             let scope = VariableScope::from_machine(machine);
-            let checker = TypeChecker::new(scope);
+            let constants = machine.constants.clone();
+            let checker = TypeChecker::new(scope, constants);
             checker.infer_all_expressions(machine)
         })
         .collect()
@@ -412,22 +485,25 @@ mod tests {
     fn test_infer_value_types() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
-        // Integer literal
+        // Integer literal — emits candidate set
         let int_val = Expression::Value(Value::Integer(IntegerValue {
             value: 42,
             fmt: IntegerFmt::Dec,
         }));
         let id = checker.infer_expression(&int_val).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::I64));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Candidates(_))));
+        assert_eq!(checker.get(id).unwrap().as_type(), Some(&Type::U8)); // best candidate
 
-        // Bool literal
+        // Bool literal — emits candidate set
         let bool_val = Expression::Value(Value::Bool(true));
         let id = checker.infer_expression(&bool_val).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::Bool));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Candidates(_))));
+        assert_eq!(checker.get(id).unwrap().as_type(), Some(&Type::Bool));
 
-        // Float literal
+        // Float literal — emits candidate set
         let float_val = Expression::Value(Value::Float(
             FloatValue {
                 value: 3.14,
@@ -435,35 +511,38 @@ mod tests {
             },
         ));
         let id = checker.infer_expression(&float_val).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::F64));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Candidates(_))));
+        assert_eq!(checker.get(id).unwrap().as_type(), Some(&Type::F32)); // best candidate
     }
 
     #[test]
     fn test_infer_reference() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
-        // Reference to counter (U16)
+        // Reference to counter (U16) — definite type
         let ref_expr = Expression::Reference(Reference {
             target: "counter".to_string(),
         });
         let id = checker.infer_expression(&ref_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::U16));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::U16))));
 
-        // Reference to flag (Bool)
+        // Reference to flag (Bool) — definite type
         let ref_expr = Expression::Reference(Reference {
             target: "flag".to_string(),
         });
         let id = checker.infer_expression(&ref_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::Bool));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::Bool))));
     }
 
     #[test]
     fn test_infer_unknown_reference() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         let ref_expr = Expression::Reference(Reference {
             target: "nonexistent".to_string(),
@@ -476,7 +555,8 @@ mod tests {
     fn test_infer_unary_negate() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         let neg_expr = Expression::Unary(
             UnaryOperator::Negate,
@@ -485,14 +565,16 @@ mod tests {
             })),
         );
         let id = checker.infer_expression(&neg_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::U16));
+        // counter is U16, negate filters to signed types: I16, I32, I64
+        assert!(matches!(checker.get(id), Some(ResolvedType::Candidates(_))));
     }
 
     #[test]
     fn test_infer_unary_not() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         let not_expr = Expression::Unary(
             UnaryOperator::Not,
@@ -501,14 +583,16 @@ mod tests {
             })),
         );
         let id = checker.infer_expression(&not_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::Bool));
+        // Logical NOT always produces Bool
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::Bool))));
     }
 
     #[test]
     fn test_infer_binary_add() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         // x (U8) + y (U32) → U32
         let add_expr = Expression::Binary(
@@ -521,14 +605,15 @@ mod tests {
             })),
         );
         let id = checker.infer_expression(&add_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::U32));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::U32))));
     }
 
     #[test]
     fn test_infer_binary_logical_or() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         // flag || flag → Bool
         let or_expr = Expression::Binary(
@@ -541,16 +626,17 @@ mod tests {
             })),
         );
         let id = checker.infer_expression(&or_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::Bool));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::Bool))));
     }
 
     #[test]
     fn test_infer_binary_comparison() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
-        // counter > 0 → Bool
+        // counter (U16) > 0 (candidate set) → Bool
         let gt_expr = Expression::Binary(
             Box::new(Expression::Reference(Reference {
                 target: "counter".to_string(),
@@ -562,14 +648,15 @@ mod tests {
             }))),
         );
         let id = checker.infer_expression(&gt_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::Bool));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::Bool))));
     }
 
     #[test]
     fn test_expression_id_uniqueness() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         // Two identical expressions should get different IDs
         let ref1 = Expression::Reference(Reference {
@@ -583,15 +670,16 @@ mod tests {
         let id2 = checker.infer_expression(&ref2).unwrap();
 
         assert_ne!(id1, id2, "Two expressions should have different IDs");
-        assert_eq!(checker.get(id1), Some(&Type::U16));
-        assert_eq!(checker.get(id2), Some(&Type::U16));
+        assert!(matches!(checker.get(id1), Some(ResolvedType::Definite(Type::U16))));
+        assert!(matches!(checker.get(id2), Some(ResolvedType::Definite(Type::U16))));
     }
 
     #[test]
     fn test_infer_parenthesis() {
         let machine = make_simple_machine();
         let scope = VariableScope::from_machine(&machine);
-        let mut checker = TypeChecker::new(scope);
+        let constants = HashMap::new();
+        let mut checker = TypeChecker::new(scope, constants);
 
         let paren_expr = Expression::Parenthesis(Box::new(
             Expression::Reference(Reference {
@@ -599,6 +687,6 @@ mod tests {
             }),
         ));
         let id = checker.infer_expression(&paren_expr).unwrap();
-        assert_eq!(checker.get(id), Some(&Type::U16));
+        assert!(matches!(checker.get(id), Some(ResolvedType::Definite(Type::U16))));
     }
 }
