@@ -12,6 +12,8 @@ pub enum CompileErrorKind {
     InvalidTimerType,
     InvalidSignalExpr,
     ReservedVariableName,
+    UnknownVariableReference,
+    InvalidAssignmentTarget,
 }
 
 impl fmt::Display for CompileErrorKind {
@@ -24,6 +26,8 @@ impl fmt::Display for CompileErrorKind {
             CompileErrorKind::InvalidTimerType => write!(f, "invalid timer type"),
             CompileErrorKind::InvalidSignalExpr => write!(f, "invalid signal expression"),
             CompileErrorKind::ReservedVariableName => write!(f, "reserved variable name"),
+            CompileErrorKind::UnknownVariableReference => write!(f, "unknown variable reference"),
+            CompileErrorKind::InvalidAssignmentTarget => write!(f, "invalid assignment target"),
         }
     }
 }
